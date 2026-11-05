@@ -483,6 +483,10 @@ paths:
           name: q
           schema: { type: string }
         - in: query
+          name: lowStock
+          description: Return products with five or fewer available units.
+          schema: { type: boolean, default: false }
+        - in: query
           name: page
           schema: { type: integer, minimum: 1, default: 1 }
         - in: query
@@ -1232,7 +1236,7 @@ components:
         quantity: { type: integer, minimum: 1, maximum: 50 }
     CheckoutInput:
       type: object
-      required: [idempotencyKey, name, email, phone, address, city, region, country]
+      required: [idempotencyKey, name, email, phone, address, city, country]
       properties:
         idempotencyKey: { type: string, format: uuid }
         name: { type: string, minLength: 2, maxLength: 160 }
@@ -1240,7 +1244,7 @@ components:
         phone: { type: string, minLength: 5, maxLength: 32 }
         address: { type: string, minLength: 5, maxLength: 300 }
         city: { type: string, minLength: 2, maxLength: 100 }
-        region: { type: string, minLength: 2, maxLength: 100 }
+        region: { type: string, maxLength: 100 }
         country: { type: string, minLength: 2, maxLength: 100 }
         deliveryNotes: { type: string, maxLength: 500 }
     CheckoutResult:

@@ -30,7 +30,7 @@ import {
   normalizeCheckoutDetails,
 } from "../lib/delivery";
 import { HttpError, resolveCurrentUser } from "../middlewares/auth";
-import { getOrCreateCart, getSettings, orderDto, unitPrice } from "../lib/store";
+import { getOrCreateCart, getSettings, orderDto, orderDtos, unitPrice } from "../lib/store";
 
 const router: IRouter = Router();
 const ORDER_NUMBER_PATTERN = /^RNG-[0-9]{4}-[A-F0-9]{8}$/;
@@ -327,7 +327,7 @@ router.get("/orders", async (req, res): Promise<void> => {
     .where(eq(ordersTable.userId, user.id))
     .orderBy(desc(ordersTable.createdAt))
     .limit(100);
-  const result = await Promise.all(orders.map(orderDto));
+  const result = await orderDtos(orders);
   res.json(ListCustomerOrdersResponse.parse(result));
 });
 

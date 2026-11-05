@@ -29,11 +29,8 @@ export interface CheckoutInput {
      * @maxLength 100
      */
   city: string;
-  /**
-     * @minLength 2
-     * @maxLength 100
-     */
-  region: string;
+  /** @maxLength 100 */
+  region?: string;
   /**
      * @minLength 2
      * @maxLength 100

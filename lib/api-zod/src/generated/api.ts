@@ -513,7 +513,6 @@ export const submitOrderBodyAddressMax = 300;
 export const submitOrderBodyCityMin = 2;
 export const submitOrderBodyCityMax = 100;
 
-export const submitOrderBodyRegionMin = 2;
 export const submitOrderBodyRegionMax = 100;
 
 export const submitOrderBodyCountryMin = 2;
@@ -530,7 +529,7 @@ export const SubmitOrderBody = zod.object({
   "phone": zod.string().min(submitOrderBodyPhoneMin).max(submitOrderBodyPhoneMax),
   "address": zod.string().min(submitOrderBodyAddressMin).max(submitOrderBodyAddressMax),
   "city": zod.string().min(submitOrderBodyCityMin).max(submitOrderBodyCityMax),
-  "region": zod.string().min(submitOrderBodyRegionMin).max(submitOrderBodyRegionMax),
+  "region": zod.string().max(submitOrderBodyRegionMax).optional(),
   "country": zod.string().min(submitOrderBodyCountryMin).max(submitOrderBodyCountryMax),
   "deliveryNotes": zod.string().max(submitOrderBodyDeliveryNotesMax).optional()
 })
@@ -676,6 +675,7 @@ export const GetAdminOverviewResponse = zod.object({
 /**
  * @summary Search admin product records
  */
+export const listAdminProductsQueryLowStockDefault = false;
 export const listAdminProductsQueryPageDefault = 1;
 
 export const listAdminProductsQueryLimitDefault = 30;
@@ -685,6 +685,7 @@ export const listAdminProductsQueryLimitMax = 100;
 
 export const ListAdminProductsQueryParams = zod.object({
   "q": zod.coerce.string().optional(),
+  "lowStock": zod.coerce.boolean().default(listAdminProductsQueryLowStockDefault).describe('Return products with five or fewer available units.'),
   "page": zod.coerce.number().int().min(1).default(listAdminProductsQueryPageDefault),
   "limit": zod.coerce.number().int().min(1).max(listAdminProductsQueryLimitMax).default(listAdminProductsQueryLimitDefault)
 })

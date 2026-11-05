@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useLocation, useParams } from 'wouter';
+import { Link, useLocation, useParams, useSearch } from 'wouter';
 import { ArrowRight, BadgeCheck, Check, ChevronLeft, ChevronRight, CircleDollarSign, Gauge, Mail, Minus, Phone, Plus, SlidersHorizontal, Truck, Wrench, X } from 'lucide-react';
 import { getGetAccountQueryKey, getGetAuthSessionQueryKey, getGetCartQueryKey, useChangePassword, useCreateSupportMessage, useGetAccount, useGetCart, useGetCustomerOrder, useGetProduct, useGetStorefront, useListCategories, useListCustomerOrders, useListProducts, useLogoutAccount, useRemoveCartItem, useSubmitOrder, useUpdateAccount, useUpdateCartItem } from '@workspace/api-client-react';
 import type { CheckoutInput, CheckoutResult, ListProductsParams } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AddCartButton, ApiNotice, EmptyPanel, InlineError, LoadingState, money, PageFrame, ProductCardView, ProductVisual, TrustStrip } from '@/components/store';
+
+function useDebouncedValue<T>(value: T, delay = 300): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timeout);
+  }, [value, delay]);
+  return debounced;
+}
 
 export function HomePage() {
   const {data:store,isLoading,isError,error,refetch}=useGetStorefront();
@@ -32,7 +41,8 @@ export function HomePage() {
 }
 
 export function CatalogPage() {
-  const initial = new URLSearchParams(window.location.search);
+  const searchString = useSearch();
+  const initial = new URLSearchParams(searchString);
   const [term,setTerm]=useState(initial.get('q')||'');
   const [q,setQ]=useState(initial.get('q')||'');
   const [category,setCategory]=useState(initial.get('category')||'');
@@ -49,10 +59,25 @@ export function CatalogPage() {
   const filterPanelRef=useRef<HTMLElement>(null);
   const filterCloseRef=useRef<HTMLButtonElement>(null);
   const filterToggleRef=useRef<HTMLButtonElement>(null);
+  const settledBrand = useDebouncedValue(brand.trim());
+  const settledVehicleMake = useDebouncedValue(vehicleMake.trim());
+  const settledVehicleModel = useDebouncedValue(vehicleModel.trim());
+  const settledVehicleYear = useDebouncedValue(vehicleYear);
+  const settledMin = useDebouncedValue(min);
+  const settledMax = useDebouncedValue(max);
   const {data:store}=useGetStorefront();
   const {data:categories}=useListCategories();
   const activeFilterCount=[category,brand.trim(),vehicleMake.trim(),vehicleModel.trim(),vehicleYear,min,max,availability!=='all'].filter(Boolean).length;
   const clearFilters=()=>{setCategory('');setBrand('');setVehicleMake('');setVehicleModel('');setVehicleYear('');setAvailability('all');setMin('');setMax('');setPage(1)};
+  useEffect(()=>{
+    const params=new URLSearchParams(searchString);
+    const nextTerm=params.get('q')||'';
+    setTerm(nextTerm);setQ(nextTerm);setCategory(params.get('category')||'');
+    setVehicleMake(params.get('compatibilityMake')||'');
+    setVehicleModel(params.get('compatibilityModel')||'');
+    setVehicleYear(params.get('compatibilityYear')||'');
+    setPage(1);
+  },[searchString]);
   useEffect(()=>{
     if(!filtersOpen)return;
     const previousFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
@@ -72,7 +97,7 @@ export function CatalogPage() {
     document.addEventListener('keydown',onKeyDown);
     return()=>{document.removeEventListener('keydown',onKeyDown);document.body.style.overflow=previousOverflow;if(previousFocus?.isConnected)previousFocus.focus()};
   },[filtersOpen]);
-  const params:ListProductsParams={q:q||undefined,category:category||undefined,brand:brand||undefined,availability,sort,page,limit:24,minPrice:min?Math.round(Number(min)*100):undefined,maxPrice:max?Math.round(Number(max)*100):undefined,compatibilityMake:vehicleMake.trim()||undefined,compatibilityModel:vehicleModel.trim()||undefined,compatibilityYear:vehicleYear?Number(vehicleYear):undefined};
+  const params:ListProductsParams={q:q||undefined,category:category||undefined,brand:settledBrand||undefined,availability,sort,page,limit:24,minPrice:settledMin?Math.round(Number(settledMin)*100):undefined,maxPrice:settledMax?Math.round(Number(settledMax)*100):undefined,compatibilityMake:settledVehicleMake||undefined,compatibilityModel:settledVehicleModel||undefined,compatibilityYear:settledVehicleYear?Number(settledVehicleYear):undefined};
   const {data:results,isLoading,isError,error,refetch}=useListProducts(params);
   const count=results?.total ?? 0;
   return <PageFrame><div className="shell"><div className="page-title"><div className="eyebrow">Catalog / real stock and product details</div><h1>Find your part.</h1><p style={{color:'hsl(var(--muted-foreground))',margin:0}}>Search by part name, brand or SKU. Use the filters to narrow your search.</p></div>
@@ -147,8 +172,8 @@ export function CheckoutPage() {
   };
   return <PageFrame><div className="shell"><div className="page-title"><div className="eyebrow">Your order / 02</div><h1>Delivery details</h1><p style={{color:'hsl(var(--muted-foreground))'}}>Pay when your order arrives. Online payment is not available.</p></div>
     {isLoading?<LoadingState label="Checking cart"/>:isError?<ApiNotice error={error} onRetry={()=>refetch()}/>:!cart?.items.length?<EmptyPanel title="Nothing to check out yet" body="Add a part to your cart first." action="Shop parts" href="/catalog"/>:<div style={{display:'grid',gridTemplateColumns:'1.25fr .75fr',gap:34,paddingBottom:70}} className="checkout-grid">
-      <form onSubmit={onSubmit} className="inline-form" style={{margin:0}}><label className="label">Full name<input className="field" required minLength={2} maxLength={160} value={form.name} onChange={e=>change('name',e.target.value)} data-testid="input-checkout-name"/></label><label className="label">Email<input className="field" type="email" required maxLength={254} value={form.email} onChange={e=>change('email',e.target.value)} data-testid="input-checkout-email"/></label><label className="label">Phone<input className="field" type="tel" required minLength={5} maxLength={32} value={form.phone} onChange={e=>change('phone',e.target.value)} data-testid="input-checkout-phone"/></label><label className="label">Country<input className="field" required minLength={2} maxLength={100} autoComplete="country-name" placeholder="e.g. Cameroon" value={form.country} onChange={e=>change('country',e.target.value)} data-testid="input-checkout-country"/></label><label className="label">State / region<input className="field" required minLength={2} maxLength={100} autoComplete="address-level1" value={form.region} onChange={e=>change('region',e.target.value)} data-testid="input-checkout-region"/></label><label className="label wide">Delivery address<input className="field" required minLength={5} maxLength={300} autoComplete="street-address" value={form.address} onChange={e=>change('address',e.target.value)} data-testid="input-checkout-address"/></label><label className="label">City<input className="field" required minLength={2} maxLength={100} autoComplete="address-level2" value={form.city} onChange={e=>change('city',e.target.value)} data-testid="input-checkout-city"/></label><label className="label">Delivery notes <span style={{fontWeight:400,color:'hsl(var(--muted-foreground))'}}>Optional</span><textarea className="field" rows={2} maxLength={500} value={form.deliveryNotes} onChange={e=>change('deliveryNotes',e.target.value)} data-testid="input-checkout-notes"/></label>
-        <div className="wide notice" style={{display:'flex',gap:11}}><CircleDollarSign size={20}/><div><strong>Cash on delivery</strong><div style={{fontSize:12}}>Pay the courier when your order is delivered. No online payment will be requested.</div></div></div>{storefront?.settings.cashOnDeliveryEnabled===false&&<div className="wide"><InlineError message="Cash on delivery is not currently enabled for this store."/></div>}{formError&&<div className="wide"><InlineError message={formError}/></div>}<button className="btn btn-accent wide" disabled={submit.isPending||storefront?.settings.cashOnDeliveryEnabled===false} data-testid="button-submit-order">{submit.isPending?'Submitting order…':'Place order'} <ArrowRight size={15}/></button>
+      <form onSubmit={onSubmit} className="inline-form" style={{margin:0}}><label className="label">Full name<input className="field" required minLength={2} maxLength={160} value={form.name} onChange={e=>change('name',e.target.value)} data-testid="input-checkout-name"/></label><label className="label">Email<input className="field" type="email" required maxLength={254} value={form.email} onChange={e=>change('email',e.target.value)} data-testid="input-checkout-email"/></label><label className="label">Phone<input className="field" type="tel" required minLength={5} maxLength={32} value={form.phone} onChange={e=>change('phone',e.target.value)} data-testid="input-checkout-phone"/></label><label className="label">Country<input className="field" required minLength={2} maxLength={100} autoComplete="country-name" placeholder="e.g. Cameroon" value={form.country} onChange={e=>change('country',e.target.value)} data-testid="input-checkout-country"/></label><label className="label">State / region <span style={{fontWeight:400,color:'hsl(var(--muted-foreground))'}}>If applicable</span><input className="field" maxLength={100} autoComplete="address-level1" placeholder="Leave blank if not used at this address" value={form.region} onChange={e=>change('region',e.target.value)} data-testid="input-checkout-region"/></label><label className="label wide">Delivery address<input className="field" required minLength={5} maxLength={300} autoComplete="street-address" value={form.address} onChange={e=>change('address',e.target.value)} data-testid="input-checkout-address"/></label><label className="label">City<input className="field" required minLength={2} maxLength={100} autoComplete="address-level2" value={form.city} onChange={e=>change('city',e.target.value)} data-testid="input-checkout-city"/></label><label className="label">Delivery notes <span style={{fontWeight:400,color:'hsl(var(--muted-foreground))'}}>Optional</span><textarea className="field" rows={2} maxLength={500} value={form.deliveryNotes} onChange={e=>change('deliveryNotes',e.target.value)} data-testid="input-checkout-notes"/></label>
+        <div className="wide notice" style={{display:'flex',gap:11}}><CircleDollarSign size={20}/><div><strong>Cash on delivery</strong><div style={{fontSize:12}}>Submitting an order request does not confirm that a courier serves your address. RANG will confirm delivery before dispatch. No online payment will be requested.</div></div></div>{storefront?.settings.cashOnDeliveryEnabled===false&&<div className="wide"><InlineError message="Cash on delivery is not currently enabled for this store."/></div>}{formError&&<div className="wide"><InlineError message={formError}/></div>}<button className="btn btn-accent wide" disabled={submit.isPending||storefront?.settings.cashOnDeliveryEnabled===false} data-testid="button-submit-order">{submit.isPending?'Submitting order…':'Place order'} <ArrowRight size={15}/></button>
       </form><aside className="notice" style={{height:'fit-content'}}><h2 className="display" style={{fontSize:23,marginTop:0}}>Order summary</h2>{cart.items.map(item=><div key={item.productId} style={{display:'flex',justifyContent:'space-between',gap:15,padding:'10px 0',borderBottom:'1px solid hsl(var(--border))'}}><span>{item.product.name} × {item.quantity}</span><span>{money(item.lineTotalMinor,cart.currency)}</span></div>)}<div style={{display:'flex',justifyContent:'space-between',padding:'14px 0'}}><span>Delivery</span><span>{money(cart.deliveryFeeMinor,cart.currency)}</span></div><strong style={{display:'flex',justifyContent:'space-between',fontSize:17}}>Total <span>{money(cart.totalMinor,cart.currency)}</span></strong></aside>
     </div>}
   </div></PageFrame>;

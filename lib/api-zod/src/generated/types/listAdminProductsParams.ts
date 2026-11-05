@@ -9,6 +9,10 @@
 export type ListAdminProductsParams = {
 q?: string;
 /**
+ * Return products with five or fewer available units.
+ */
+lowStock?: boolean;
+/**
  * @minimum 1
  */
 page?: number;

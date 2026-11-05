@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import { Router, type IRouter, type RequestHandler } from "express";
 import multer from "multer";
 import {
@@ -66,6 +66,7 @@ import {
   categoryDtos,
   getSettings,
   orderDto,
+  orderDtos,
   productCards,
   publicImageDto,
   settingsDto,
@@ -275,7 +276,19 @@ router.get("/admin/overview", async (_req, res): Promise<void> => {
 });
 
 router.get("/admin/products", async (req, res): Promise<void> => {
-  const parsed = ListAdminProductsQueryParams.safeParse(req.query);
+  const rawLowStock = req.query.lowStock;
+  if (
+    rawLowStock !== undefined &&
+    rawLowStock !== "true" &&
+    rawLowStock !== "false"
+  ) {
+    res.status(400).json(errorResponse("Invalid product search.", "INVALID_QUERY"));
+    return;
+  }
+  const parsed = ListAdminProductsQueryParams.safeParse({
+    ...req.query,
+    lowStock: rawLowStock === undefined ? undefined : rawLowStock === "true",
+  });
   if (!parsed.success) {
     res.status(400).json(errorResponse("Invalid product search.", "INVALID_QUERY"));
     return;
@@ -283,6 +296,9 @@ router.get("/admin/products", async (req, res): Promise<void> => {
   const page = parsed.data.page ?? 1;
   const limit = parsed.data.limit ?? 30;
   const filters = [];
+  if (parsed.data.lowStock) {
+    filters.push(lte(productsTable.stock, 5));
+  }
   if (parsed.data.q?.trim()) {
     const term = `%${parsed.data.q.trim().slice(0, 120)}%`;
     filters.push(
@@ -730,7 +746,7 @@ router.get("/admin/orders", async (req, res): Promise<void> => {
     .orderBy(desc(ordersTable.createdAt))
     .limit(parsed.data.limit ?? 30)
     .offset(((parsed.data.page ?? 1) - 1) * (parsed.data.limit ?? 30));
-  res.json(ListAdminOrdersResponse.parse(await Promise.all(orders.map(orderDto))));
+  res.json(ListAdminOrdersResponse.parse(await orderDtos(orders)));
 });
 
 router.patch("/admin/orders/:orderId", async (req, res): Promise<void> => {
@@ -866,22 +882,28 @@ router.get("/admin/customers", async (req, res): Promise<void> => {
     .orderBy(asc(usersTable.name))
     .limit(parsed.data.limit ?? 30)
     .offset(((parsed.data.page ?? 1) - 1) * (parsed.data.limit ?? 30));
-  const customerRows = await Promise.all(
-    customers.map(async (customer) => {
-      const [orderCount] = await db
-        .select({ count: sql<number>`count(*)::int` })
+  const customerIds = customers.map((customer) => customer.id);
+  const orderCounts = customerIds.length
+    ? await db
+        .select({
+          userId: ordersTable.userId,
+          count: count(),
+        })
         .from(ordersTable)
-        .where(eq(ordersTable.userId, customer.id));
-      return {
-        id: customer.id,
-        email: customer.email,
-        name: customer.name,
-        phone: customer.phone,
-        role: customer.role,
-        orderCount: orderCount?.count ?? 0,
-      };
-    }),
+        .where(inArray(ordersTable.userId, customerIds))
+        .groupBy(ordersTable.userId)
+    : [];
+  const countByUserId = new Map(
+    orderCounts.map((row) => [row.userId, Number(row.count)]),
   );
+  const customerRows = customers.map((customer) => ({
+    id: customer.id,
+    email: customer.email,
+    name: customer.name,
+    phone: customer.phone,
+    role: customer.role,
+    orderCount: countByUserId.get(customer.id) ?? 0,
+  }));
   res.json(ListAdminCustomersResponse.parse(customerRows));
 });
 

@@ -348,46 +348,62 @@ export async function cartDto(cartId: string) {
   return response;
 }
 
-export async function orderDto(order: Order) {
-  const [items, delivery] = await Promise.all([
+export async function orderDtos(orders: Order[]) {
+  if (orders.length === 0) return [];
+  const orderIds = orders.map((order) => order.id);
+  const [items, deliveries] = await Promise.all([
     db
       .select()
       .from(orderItemsTable)
-      .where(eq(orderItemsTable.orderId, order.id)),
+      .where(inArray(orderItemsTable.orderId, orderIds)),
     db
       .select()
       .from(deliveriesTable)
-      .where(eq(deliveriesTable.orderId, order.id))
-      .limit(1),
+      .where(inArray(deliveriesTable.orderId, orderIds)),
   ]);
-  const result = {
-    id: order.id,
-    orderNumber: order.orderNumber,
-    orderStatus: order.orderStatus,
-    paymentStatus: order.paymentStatus,
-    paymentMethod: order.paymentMethod,
-    fulfillmentStatus: order.fulfillmentStatus,
-    totalMinor: order.totalMinor,
-    currency: order.currency,
-    createdAt: order.createdAt.toISOString(),
-    customerName: order.customerName,
-    customerEmail: order.customerEmail,
-    customerPhone: order.customerPhone,
-    deliveryAddress: delivery[0]?.address ?? "",
-    deliveryCity: delivery[0]?.city ?? "",
-    deliveryRegion: delivery[0]?.region ?? "",
-    deliveryCountry: delivery[0]?.country ?? null,
-    deliveryNotes: delivery[0]?.deliveryNotes ?? null,
-    deliveryFeeMinor: order.deliveryFeeMinor,
-    staffNote: order.staffNote,
-    items: items.map((item) => ({
-      name: item.name,
-      sku: item.sku,
-      quantity: item.quantity,
-      unitPriceMinor: item.unitPriceMinor,
-      lineTotalMinor: item.lineTotalMinor,
-    })),
-  };
+  const itemsByOrder = new Map<string, typeof items>();
+  for (const item of items) {
+    const orderItems = itemsByOrder.get(item.orderId) ?? [];
+    orderItems.push(item);
+    itemsByOrder.set(item.orderId, orderItems);
+  }
+  const deliveryByOrder = new Map(deliveries.map((delivery) => [delivery.orderId, delivery]));
+
+  return orders.map((order) => {
+    const delivery = deliveryByOrder.get(order.id);
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      orderStatus: order.orderStatus,
+      paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
+      fulfillmentStatus: order.fulfillmentStatus,
+      totalMinor: order.totalMinor,
+      currency: order.currency,
+      createdAt: order.createdAt.toISOString(),
+      customerName: order.customerName,
+      customerEmail: order.customerEmail,
+      customerPhone: order.customerPhone,
+      deliveryAddress: delivery?.address ?? "",
+      deliveryCity: delivery?.city ?? "",
+      deliveryRegion: delivery?.region ?? "",
+      deliveryCountry: delivery?.country ?? null,
+      deliveryNotes: delivery?.deliveryNotes ?? null,
+      deliveryFeeMinor: order.deliveryFeeMinor,
+      staffNote: order.staffNote,
+      items: (itemsByOrder.get(order.id) ?? []).map((item) => ({
+        name: item.name,
+        sku: item.sku,
+        quantity: item.quantity,
+        unitPriceMinor: item.unitPriceMinor,
+        lineTotalMinor: item.lineTotalMinor,
+      })),
+    };
+  });
+}
+
+export async function orderDto(order: Order) {
+  const [result] = await orderDtos([order]);
   return result;
 }
 

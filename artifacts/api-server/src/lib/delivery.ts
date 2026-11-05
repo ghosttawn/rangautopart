@@ -4,12 +4,14 @@ export interface CheckoutContactAndAddress {
   phone: string;
   address: string;
   city: string;
-  region: string;
+  region?: string | null;
   country: string;
   deliveryNotes?: string | null;
 }
 
-export function normalizeCheckoutDetails<T extends CheckoutContactAndAddress>(input: T): T {
+export function normalizeCheckoutDetails<T extends CheckoutContactAndAddress>(
+  input: T,
+): T & { region: string } {
   return {
     ...input,
     name: input.name.trim(),
@@ -17,7 +19,7 @@ export function normalizeCheckoutDetails<T extends CheckoutContactAndAddress>(in
     phone: input.phone.trim(),
     address: input.address.trim(),
     city: input.city.trim(),
-    region: input.region.trim(),
+    region: input.region?.trim() ?? "",
     country: input.country.trim(),
     deliveryNotes: input.deliveryNotes?.trim() || undefined,
   };
@@ -29,7 +31,6 @@ export function hasCompleteDeliveryDetails(input: CheckoutContactAndAddress): bo
     input.phone.length >= 5 &&
     input.address.length >= 5 &&
     input.city.length >= 2 &&
-    input.region.length >= 2 &&
     input.country.length >= 2
   );
 }

@@ -154,6 +154,9 @@ the complete payment flow has been tested.
 ## Current operating boundaries
 
 - Customer accounts use native email/password sessions stored in PostgreSQL.
+- The contact form stores messages in the staff support inbox; it does not send
+  automatic email notifications. Account password recovery remains unavailable
+  until an email-delivery transport is configured.
 - Staff order and product operations require a database-backed `admin` or
   `staff` role. Initial admin access is provisioned using the guarded
   development-only command above; there is no public admin-creation endpoint.

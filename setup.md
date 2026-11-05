@@ -15,7 +15,7 @@ emails, or claim a destination is deliverable before staff confirms it.
 The repository root is the monorepo root. The API is in
 `artifacts/api-server`; the static storefront is in
 `artifacts/rang-auto-parts`; database schema and migrations are in `lib/db`.
-Use the repository root as the Render root directory for both services.
+Use the repository root as the Render root directory.
 
 ## 2. Create the Neon database
 
@@ -89,39 +89,42 @@ inserts only missing demo records, and preserves existing records. It does not
 create an administrator; use the separately guarded provisioning command for
 that. Re-running it is intended for development only.
 
-## 4. Render API Web Service
+## 4. Render Web Service (recommended)
 
-Create a **Web Service** from the GitHub repository with these settings:
+Use one Render **Web Service** for the API and storefront. Serving both from the
+same origin keeps sign-in and cart cookies on the same host and avoids requiring
+custom domains just to make the browser accept those cookies.
 
 | Setting | Value |
 | --- | --- |
 | Root Directory | repository root (`.`); leave blank if Render treats blank as root |
 | Runtime | Node |
-| Build Command | `pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build` |
+| Build Command | `pnpm install --frozen-lockfile && pnpm --filter @workspace/rang-auto-parts run build && pnpm --filter @workspace/api-server run build` |
 | Start Command | `pnpm --filter @workspace/api-server run start` |
 | Health Check Path | `/api/healthz` |
 
-Set these API environment variables in Render:
+Set these Web Service environment variables in Render:
 
 | Variable | Purpose | Secret? |
 | --- | --- | --- |
 | `DATABASE_URL` | Neon PostgreSQL connection string; use the pooled TLS URL | Yes |
-| `FRONTEND_ORIGINS` | Exact storefront origin(s), comma-separated, without paths; e.g. `https://your-store.onrender.com` | No |
 | `NODE_ENV` | Set to `production` | No |
+| `SERVE_FRONTEND` | Set to `true` to serve the built storefront and same-origin `/api` routes | No |
 | `PORT` | Render supplies this; do not hardcode it | No |
 
 The service listens on `0.0.0.0` using Render's `PORT`. The health endpoint
 checks PostgreSQL and returns `503` if the database cannot be reached. Do not
-mark the API healthy solely because its process has started.
+mark the service healthy solely because its process has started. The startup
+fails explicitly if `SERVE_FRONTEND=true` but the storefront build is missing.
 
-`FRONTEND_ORIGINS` must match the deployed Static Site origin exactly, including
-the scheme and any custom port. If the frontend has a custom domain, update this
-variable and redeploy the API. The API rejects cross-origin writes from origins
-that are not listed.
+Leave `VITE_API_BASE_URL` unset for this single-service setup: the storefront
+uses relative `/api/...` requests. `FRONTEND_ORIGINS` is not required when the
+Web Service serves both parts from the same origin.
 
-## 5. Render Static Site
+## 5. Optional separate Render Static Site
 
-Create a **Static Site** from the same GitHub repository:
+The default single Web Service is the recommended setup. If you instead want a
+separate **Static Site** and API Web Service, use the following settings:
 
 | Setting | Value |
 | --- | --- |
@@ -136,7 +139,8 @@ load the app:
 | --- | --- | --- |
 | `/*` | `/index.html` | Rewrite, status `200` |
 
-Set this Static Site build environment variable:
+For the API Web Service, also set `SERVE_FRONTEND=false` (or leave it unset) and
+set `FRONTEND_ORIGINS` to the exact Static Site origin. For the Static Site:
 
 | Variable | Purpose | Secret? |
 | --- | --- | --- |
@@ -144,12 +148,13 @@ Set this Static Site build environment variable:
 | `VITE_REQUIRE_API_BASE_URL` | Set to `true` so a missing or invalid API origin fails the Static Site build | No |
 
 The generated client already calls `/api/...`; the app prepends this origin at
-build time. Set `VITE_REQUIRE_API_BASE_URL=true` for Render's separate Static
-Site and API. Do not put `DATABASE_URL`, a password, or any other private value in
-a `VITE_` variable: Vite embeds those values in public JavaScript. If the
-frontend and API are later served from one origin, `VITE_API_BASE_URL` can be
-blank and `VITE_REQUIRE_API_BASE_URL` can be `false`; API requests use `/api` on
-that origin.
+build time. `FRONTEND_ORIGINS` must match the deployed Static Site origin
+exactly, including scheme and any custom port; the API rejects unlisted
+cross-origin writes. For reliable cookie-based sign-in and cart persistence,
+serve both sites under HTTPS sibling custom domains on the same parent domain.
+Visitors should use the custom frontend domain, not a separate Render hostname.
+Do not put `DATABASE_URL`, a password, or any other private value in a `VITE_`
+variable: Vite embeds those values in public JavaScript.
 
 Product, category, and homepage uploads are stored in PostgreSQL, not on the
 Web Service's temporary filesystem. No persistent Render disk or object-storage
@@ -160,68 +165,67 @@ cached, while upload validation and the 5 MB limit remain enforced by the API.
 
 Use this order:
 
-1. Create Neon and set the API `DATABASE_URL`.
+1. Create Neon and set the Web Service `DATABASE_URL`.
 2. Apply committed migrations to Neon.
-3. Create the API Web Service. Set `FRONTEND_ORIGINS` after the Static Site URL
-   is known; the initial health check also requires a working database.
-4. Create the Static Site with `VITE_API_BASE_URL` set to the API origin.
-5. Add the exact Static Site origin to `FRONTEND_ORIGINS` and redeploy the API.
-6. Provision the administrator using the guarded procedure below.
-7. Sign in at `/admin/login` and open **Settings**. Set the store name, currency,
+3. Create the Web Service with `SERVE_FRONTEND=true`; its build produces both
+   the API and storefront.
+4. Confirm `/api/healthz` returns HTTP `200`, then open the Web Service URL and
+   test direct navigation to `/catalog` and `/admin/login`.
+5. Provision the administrator using the guarded procedure below.
+6. Sign in at `/admin/login` and open **Settings**. Set the store name, currency,
    delivery fee, support email and/or phone, and the intended delivery policy.
-   Publish at least one real support channel before launch.
+   Publish a staffed support channel before launch.
 
 With no delivery regions configured, checkout accepts international order
-requests and staff can confirm delivery before dispatch. This does not imply
-that a carrier serves every address: no carrier, tax, or online-payment provider
-is configured. If the business has geographic limits, enter confirmed country
-names/codes or region names in **Supported delivery countries or regions**.
-For an unambiguous regional rule, use `Country/Region`. Existing region-only
-entries continue to match the typed region. The configured delivery fee is a
-single flat fee; country-specific quotes and taxes are not calculated.
+requests and staff must confirm delivery before dispatch. An accepted order
+request is not a promise that a carrier serves the address: no carrier, tax, or
+online-payment provider is configured. If the business has geographic limits,
+enter confirmed country names/codes or region names in **Supported delivery
+countries or regions**. Use `Country/Region` for an unambiguous regional rule.
+The state/region field at checkout is optional for addresses that do not use
+one. The configured delivery fee is one flat amount; country-specific quotes
+and taxes are not calculated.
 
-The contact page opens the configured email app (`mailto:`) or phone app
-(`tel:`); it does not submit a message to an RANG inbox. No email transport is
-configured, so password-recovery requests return a clear unavailable response
-until a delivery provider is deliberately added.
+The contact form submits feedback to the authenticated staff support inbox.
+Configured email and phone are optional `mailto:` and `tel:` links; messages are
+stored for staff review but are not emailed automatically. Account password
+recovery also remains unavailable until an email-delivery provider is
+deliberately added.
 
 ### Optional custom domain
 
-1. In the Render Static Site settings, add the actual frontend domain under
-   **Custom Domains** and follow the DNS records Render displays. Do not copy
-   example records from this guide; Render provides the records for the domain
-   you own.
-2. Once DNS and HTTPS are active, set the API Web Service
-   `FRONTEND_ORIGINS` to the exact frontend origin, for example
-   `https://shop.example.com`, then redeploy the API.
-3. For reliable session cookies, give the API a sibling custom domain under the
-   same parent domain (for example `api.example.com`). Add that domain to the
-   API Web Service, then update the Static Site's `VITE_API_BASE_URL` to the
-   API origin and rebuild the Static Site.
-4. If only the frontend domain changes and the API domain stays the same,
-   `VITE_API_BASE_URL` does not change, but `FRONTEND_ORIGINS` must be updated.
-   Keep both services on HTTPS and under the same registrable domain so browser
-   cookie rules do not block sign-in.
+1. For the recommended one-service setup, add the owned domain to the Web
+   Service under **Custom Domains** and follow the DNS records Render displays.
+   The frontend and API continue using the same host.
+2. If using a separate Static Site instead, give the frontend and API sibling
+   custom domains under the same parent domain (for example,
+   `shop.example.com` and `api.example.com`). Use HTTPS on both.
+3. Set the API's `FRONTEND_ORIGINS` to the exact frontend origin and set the
+   Static Site's `VITE_API_BASE_URL` to the API origin. Rebuild both services.
+   Keep using the custom frontend domain; the separate default Render hostnames
+   are not same-site with the API and may block cookie-based sign-in or carts.
 
 No real URL, DNS record, or custom domain is assumed in this repository.
 
 ## 7. Environment variables by service
 
-### API Web Service
+### Web Service
 
 - `DATABASE_URL` — required secret; Neon PostgreSQL TLS connection string.
-- `FRONTEND_ORIGINS` — required when the storefront and API have different
-  origins (and required in production); comma-separated exact web origins,
-  without path or trailing slash.
+- `SERVE_FRONTEND=true` — serves the built web storefront alongside the API;
+  use `false` or omit only when deploying a separate Static Site.
+- `FRONTEND_ORIGINS` — required only for the separate Static Site setup;
+  comma-separated exact origins, without path or trailing slash.
 - `NODE_ENV=production` — enables production behavior and secure session cookies.
 - `PORT` — supplied by Render; the API binds to it.
 
 ### Static Site
 
 - `VITE_API_BASE_URL` — public API origin, no `/api` suffix. Required for the
-  separate Render Static Site + Web Service setup above. It is not secret.
+  separate Render Static Site + Web Service setup above; unset for one service.
+  It is not secret.
 - `VITE_REQUIRE_API_BASE_URL=true` — makes a missing or malformed API origin
-  fail the Static Site build. It is not secret.
+  fail the separate Static Site build. It is not secret.
 
 ### One-off commands only
 
@@ -270,9 +274,9 @@ cannot replace a password on an existing account.
    structured error.
 2. Open `https://<api-service-host>/api/storefront`; expect JSON and the
    configured storefront settings.
-3. Open the Static Site and verify product browsing, search, and product
-   details. In browser developer tools, requests should go to the configured
-   API host's `/api/...` paths, not a local address.
+3. Open the storefront and verify product browsing, search, and product details.
+   In the single-service setup, API requests should remain on the same origin at
+   `/api/...`, not a local address.
 4. Verify sign-up/sign-in, sign-out, cart persistence, a cash-on-delivery test
    order, and order visibility in the admin dashboard. Use a test product and
    customer record, not a live customer's details.
@@ -284,20 +288,21 @@ cannot replace a password on an existing account.
    for a write request. Check both `FRONTEND_ORIGINS` and browser CORS errors if
    the API request fails.
 7. Test direct navigation and refresh on `/catalog`, `/cart`, `/checkout`, and
-   `/admin/login` to confirm the Static Site rewrite is active.
+   `/admin/login`. In a separate Static Site deployment, confirm the rewrite is
+   active.
 
 ## 10. Deploy future changes and troubleshoot
 
-- Push the reviewed changes to GitHub. Render rebuilds the API and Static Site.
+- Push the reviewed changes to GitHub. Render rebuilds the configured service(s).
 - If a change adds a database column or index, generate and commit its Drizzle
   migration, back up production, run `pnpm --filter @workspace/db run migrate`
   against Neon, then deploy the code that uses it. Migrations are not run on
   API startup.
 - If the API returns `503` at `/api/healthz`, check the API logs, `DATABASE_URL`,
   Neon status, connection limit, and TLS requirement.
-- If the frontend shows a connection error or CORS failure, check
-  `VITE_API_BASE_URL`, `FRONTEND_ORIGINS`, and whether both services use HTTPS.
-  Rebuild the Static Site after changing its API origin.
+- If the frontend shows a connection error or CORS failure in a separate-site
+  deployment, check `VITE_API_BASE_URL`, `FRONTEND_ORIGINS`, and that both
+  services use HTTPS. Rebuild the Static Site after changing its API origin.
 - If `/catalog` or another nested page returns `404` on refresh, check the
   Static Site rewrite to `/index.html`.
 - If a migration fails, stop and inspect the migration output and current
@@ -305,7 +310,10 @@ cannot replace a password on an existing account.
 - If an order is declined for a delivery region, review **Settings**. A blank
   list accepts global order requests; a populated list is an explicit
   country/region allowlist. The parts desk must still confirm actual delivery.
-- If contact options are missing, publish a staffed email address or phone in
+- If the support inbox has no new message, verify the contact form's success
+  state and `/api/support/messages` request. The form stores messages in the
+  database; it does not send an email notification.
+- If contact links are missing, publish a staffed email address or phone in
   **Settings**. Email delivery for account recovery is not configured by this
   project.
 - Before testing or reseeding, confirm that the command targets a development

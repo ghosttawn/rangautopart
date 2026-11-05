@@ -530,11 +530,8 @@ export interface CheckoutInput {
      * @maxLength 100
      */
   city: string;
-  /**
-     * @minLength 2
-     * @maxLength 100
-     */
-  region: string;
+  /** @maxLength 100 */
+  region?: string;
   /**
      * @minLength 2
      * @maxLength 100
@@ -762,6 +759,10 @@ export const ListProductsSort = {
 
 export type ListAdminProductsParams = {
 q?: string;
+/**
+ * Return products with five or fewer available units.
+ */
+lowStock?: boolean;
 /**
  * @minimum 1
  */
