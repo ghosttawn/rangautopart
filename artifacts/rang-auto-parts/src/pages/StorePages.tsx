@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowRight, BadgeCheck, Check, ChevronLeft, ChevronRight, CircleDollarSign, Gauge, Mail, Minus, Phone, Plus, SlidersHorizontal, Truck, Wrench } from 'lucide-react';
-import { useGetAccount, useGetCart, useGetCustomerOrder, useGetProduct, useGetStorefront, useListCategories, useListCustomerOrders, useListProducts, useRemoveCartItem, useSubmitOrder, useUpdateAccount, useUpdateCartItem } from '@workspace/api-client-react';
+import { getGetAccountQueryKey, getGetAuthSessionQueryKey, useChangePassword, useGetAccount, useGetCart, useGetCustomerOrder, useGetProduct, useGetStorefront, useListCategories, useListCustomerOrders, useListProducts, useLogoutAccount, useRemoveCartItem, useSubmitOrder, useUpdateAccount, useUpdateCartItem } from '@workspace/api-client-react';
 import type { CheckoutInput, CheckoutResult, ListProductsParams } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useClerk } from '@clerk/react';
 import { AddCartButton, ApiNotice, EmptyPanel, InlineError, LoadingState, money, PageFrame, ProductCardView, ProductVisual, TrustStrip } from '@/components/store';
 
 export function HomePage() {
@@ -136,13 +135,27 @@ export function OrderPage() {
 }
 
 export function AccountPage() {
+  const [,setLocation]=useLocation();
   const {data:user,isLoading,isError,error,refetch}=useGetAccount();const update=useUpdateAccount();const qc=useQueryClient();
-  const {signOut}=useClerk();
+  const logout=useLogoutAccount();const changePassword=useChangePassword();
   const [name,setName]=useState('');const [phone,setPhone]=useState('');const [saved,setSaved]=useState(false);
-  useEffect(()=>{if(user){setName(user.name);setPhone(user.phone||'')}},[user]);
+  const [currentPassword,setCurrentPassword]=useState('');const [newPassword,setNewPassword]=useState('');const [passwordSaved,setPasswordSaved]=useState(false);
+  useEffect(()=>{if(user){setName(user.name);setPhone(user.phone||'')}},[user?.id]);
   if(isLoading)return <PageFrame><LoadingState label="Loading account"/></PageFrame>;
-  if(isError)return <PageFrame><div className="shell" style={{padding:'40px 0'}}><ApiNotice error={error} onRetry={()=>refetch()}/><div style={{marginTop:16}}><Link href="/sign-in" className="btn" data-testid="link-sign-in-account">Sign in</Link></div></div></PageFrame>;
-  return <PageFrame><div className="shell" style={{maxWidth:800,paddingBottom:60}}><div className="page-title"><div className="eyebrow">Your RANG account</div><h1>Account details</h1></div><form className="inline-form" onSubmit={e=>{e.preventDefault();update.mutate({data:{name,phone:phone||null}},{onSuccess:()=>{setSaved(true);qc.invalidateQueries()}})}}><label className="label">Name<input className="field" required minLength={2} value={name} onChange={e=>setName(e.target.value)} data-testid="input-account-name"/></label><label className="label">Email<input className="field" value={user?.email||''} readOnly aria-readonly="true" data-testid="input-account-email"/></label><label className="label wide">Phone<input className="field" type="tel" value={phone} onChange={e=>setPhone(e.target.value)} data-testid="input-account-phone"/></label>{update.isError&&<InlineError message={update.error instanceof Error?update.error.message:'Could not update account.'}/>}<button className="btn wide" disabled={update.isPending} data-testid="button-save-account">{update.isPending?'Saving…':saved?'Saved':'Save details'}</button></form><div style={{marginTop:25,display:'flex',gap:10,flexWrap:'wrap'}}><Link href="/orders" className="btn btn-outline" data-testid="link-my-orders">View my orders <ArrowRight size={15}/></Link><button className="btn btn-outline" onClick={()=>signOut({redirectUrl:import.meta.env.BASE_URL.replace(/\/$/,'')||'/'})} data-testid="button-sign-out">Sign out</button></div></div></PageFrame>;
+  if(isError||!user)return <PageFrame><div className="shell" style={{padding:'40px 0'}}><ApiNotice error={error||new Error('Sign in to view your account.')} onRetry={()=>refetch()}/><div style={{marginTop:16}}><Link href="/sign-in" className="btn" data-testid="link-sign-in-account">Sign in</Link></div></div></PageFrame>;
+  return <PageFrame><div className="shell" style={{maxWidth:800,paddingBottom:60}}><div className="page-title"><div className="eyebrow">Your RANG account</div><h1>Account details</h1><p style={{color:'hsl(var(--muted-foreground))'}}>Your account details are loaded from RANG securely.</p></div>
+    <form className="inline-form" onSubmit={e=>{e.preventDefault();update.mutate({data:{name,phone:phone||null}},{onSuccess:()=>{setSaved(true);void qc.invalidateQueries({queryKey:getGetAccountQueryKey()})}})}}>
+      <label className="label">Name<input className="field" required minLength={2} maxLength={160} value={name} onChange={e=>{setName(e.target.value);setSaved(false)}} data-testid="input-account-name"/></label><label className="label">Email<input className="field" value={user.email} readOnly aria-readonly="true" data-testid="input-account-email"/></label><label className="label wide">Phone<input className="field" type="tel" maxLength={32} value={phone} onChange={e=>{setPhone(e.target.value);setSaved(false)}} data-testid="input-account-phone"/></label>
+      {update.isError&&<InlineError message={update.error instanceof Error?update.error.message:'Could not update account.'}/>}<button className="btn wide" disabled={update.isPending} data-testid="button-save-account">{update.isPending?'Saving…':saved?'Saved':'Save details'}</button>
+    </form>
+    <section className="account-password"><div className="eyebrow">Security</div><h2 className="display">Change password</h2><form className="inline-form" onSubmit={e=>{e.preventDefault();setPasswordSaved(false);changePassword.mutate({data:{currentPassword,newPassword}},{onSuccess:()=>{setCurrentPassword('');setNewPassword('');setPasswordSaved(true);void qc.invalidateQueries({queryKey:getGetAuthSessionQueryKey()});void qc.invalidateQueries({queryKey:getGetAccountQueryKey()})}})}}>
+      <label className="label">Current password<input className="field" type="password" required autoComplete="current-password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} data-testid="input-current-password"/></label><label className="label">New password<input className="field" type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} data-testid="input-new-password"/><small className="auth-hint">Use at least 12 characters.</small></label>
+      {changePassword.isError&&<div className="wide"><InlineError message={changePassword.error instanceof Error?changePassword.error.message:'Password could not be changed.'}/></div>}
+      {passwordSaved&&<p className="notice wide" role="status" data-testid="status-password-updated">Your password has been changed.</p>}
+      <button className="btn wide" disabled={changePassword.isPending} data-testid="button-change-password">{changePassword.isPending?'Updating password…':'Change password'}</button>
+    </form></section>
+    <div style={{marginTop:25,display:'flex',gap:10,flexWrap:'wrap'}}><Link href="/orders" className="btn btn-outline" data-testid="link-my-orders">View my orders <ArrowRight size={15}/></Link><button className="btn btn-outline" disabled={logout.isPending} onClick={()=>logout.mutate(undefined,{onSuccess:()=>{qc.removeQueries({predicate:q=>['/api/account','/api/cart','/api/customer','/api/admin'].some(part=>JSON.stringify(q.queryKey).includes(part))});void qc.invalidateQueries({queryKey:getGetAuthSessionQueryKey()});setLocation('/')}})} data-testid="button-sign-out">{logout.isPending?'Signing out…':'Sign out'}</button></div>
+  </div></PageFrame>;
 }
 
 export function OrdersPage() {

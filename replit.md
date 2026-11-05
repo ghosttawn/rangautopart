@@ -23,14 +23,15 @@ A parts storefront and operations dashboard for RANG ATV/AUTO PART/V ACCESSORIES
 ## Where things live
 
 - `artifacts/rang-auto-parts` — customer storefront and staff dashboard
-- `artifacts/api-server` — API, Clerk verification, authorization, commerce operations
+- `artifacts/api-server` — API, native session authentication, authorization, commerce operations
 - `lib/api-spec/openapi.yaml` — API contract source of truth
 - `lib/db/src/schema/` — PostgreSQL schema source of truth
 - `docs/OPERATIONS.md` — environment setup, schema changes, deployment, backup, and restore
 
 ## Architecture decisions
 
-- Clerk authenticates users; application roles are enforced by the API and stored in PostgreSQL.
+- Email/password accounts use password hashes and opaque, database-backed HTTP-only sessions; roles are enforced by the API and stored in PostgreSQL.
+- Password reset tokens are one-time, hashed, and short-lived. Email delivery must be configured before customer self-service recovery is available.
 - The API calculates prices and inventory changes during checkout; online payments remain disabled until a provider is fully verified.
 - Product image bytes are stored in PostgreSQL so database backups include the catalog's images.
 

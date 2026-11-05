@@ -17,6 +17,137 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Get the current native authentication session
+ */
+export const GetAuthSessionResponse = zod.object({
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['customer', 'staff', 'admin'])
+}),zod.null()]),
+  "expiresAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Register a customer account
+ */
+export const registerAccountBodyEmailMax = 254;
+
+export const registerAccountBodyPasswordMin = 12;
+export const registerAccountBodyPasswordMax = 128;
+
+export const registerAccountBodyNameMin = 2;
+export const registerAccountBodyNameMax = 160;
+
+
+
+export const RegisterAccountBody = zod.object({
+  "email": zod.string().email().max(registerAccountBodyEmailMax),
+  "password": zod.string().min(registerAccountBodyPasswordMin).max(registerAccountBodyPasswordMax),
+  "name": zod.string().min(registerAccountBodyNameMin).max(registerAccountBodyNameMax)
+})
+
+export const RegisterAccountResponse = zod.object({
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['customer', 'staff', 'admin'])
+}),zod.null()]),
+  "expiresAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Sign in with email and password
+ */
+export const loginAccountBodyEmailMax = 254;
+
+export const loginAccountBodyPasswordMax = 128;
+
+
+
+export const LoginAccountBody = zod.object({
+  "email": zod.string().email().max(loginAccountBodyEmailMax),
+  "password": zod.string().min(1).max(loginAccountBodyPasswordMax)
+})
+
+export const LoginAccountResponse = zod.object({
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['customer', 'staff', 'admin'])
+}),zod.null()]),
+  "expiresAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary End the current session
+ */
+export const LogoutAccountResponse = zod.void()
+
+
+/**
+ * @summary Request a password recovery email
+ */
+export const requestPasswordResetBodyEmailMax = 254;
+
+
+
+export const RequestPasswordResetBody = zod.object({
+  "email": zod.string().email().max(requestPasswordResetBodyEmailMax)
+})
+
+export const RequestPasswordResetResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Set a new password using a recovery token
+ */
+export const resetPasswordBodyTokenMin = 32;
+export const resetPasswordBodyTokenMax = 128;
+
+export const resetPasswordBodyPasswordMin = 12;
+export const resetPasswordBodyPasswordMax = 128;
+
+
+
+export const ResetPasswordBody = zod.object({
+  "token": zod.string().min(resetPasswordBodyTokenMin).max(resetPasswordBodyTokenMax),
+  "password": zod.string().min(resetPasswordBodyPasswordMin).max(resetPasswordBodyPasswordMax)
+})
+
+export const ResetPasswordResponse = zod.void()
+
+
+/**
+ * @summary Change the signed-in account password
+ */
+export const changePasswordBodyCurrentPasswordMax = 128;
+
+export const changePasswordBodyNewPasswordMin = 12;
+export const changePasswordBodyNewPasswordMax = 128;
+
+
+
+export const ChangePasswordBody = zod.object({
+  "currentPassword": zod.string().min(1).max(changePasswordBodyCurrentPasswordMax),
+  "newPassword": zod.string().min(changePasswordBodyNewPasswordMin).max(changePasswordBodyNewPasswordMax)
+})
+
+export const ChangePasswordResponse = zod.void()
+
+
+/**
  * @summary Get store settings and featured products
  */
 export const GetStorefrontResponse = zod.object({
@@ -196,6 +327,12 @@ export const GetProductResponse = zod.object({
   "category": zod.string().nullable()
 })).optional()
 }))
+
+
+/**
+ * @summary Get public storefront and product sitemap
+ */
+export const GetSitemapResponse = zod.unknown()
 
 
 /**

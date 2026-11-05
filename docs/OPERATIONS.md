@@ -13,18 +13,13 @@ secret values or copy development credentials into production.
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `CLERK_PUBLISHABLE_KEY` | Server-side Clerk request verification |
-| `CLERK_SECRET_KEY` | Server-side Clerk API access |
-| `VITE_CLERK_PUBLISHABLE_KEY` | Browser sign-in/sign-up |
-| `SESSION_SECRET` | Session signing secret where session-backed services are enabled |
-| `RANG_ADMIN_EMAILS` | Comma-separated trusted email allowlist for initial admin access |
-| `VITE_CLERK_PROXY_URL` | Optional Clerk proxy URL when the deployment requires it |
+| — | No email-delivery transport is currently wired; password recovery remains unavailable until one is configured |
 
-Use separate Clerk development and production environments. Add the verified
-email address of the business administrator to `RANG_ADMIN_EMAILS` in the
-target environment before staff sign in. Admin and staff permissions are
-checked by the API; hiding dashboard links in the browser is not the security
-boundary. Keep this allowlist limited to business-controlled accounts.
+The app uses native email/password accounts. Passwords are scrypt-hashed;
+session cookies are HTTP-only and database-backed, and the API checks admin
+and staff roles on every protected request. Existing customer, order, cart, and
+role records remain in PostgreSQL. Accounts migrated from the former provider
+need a password reset before their old account can be used with the native login.
 
 ## Development sample data
 
@@ -48,24 +43,33 @@ before launch.
 
 ## Development administrator access
 
-The app uses its existing Clerk login; it does not ship a shared development
-password or bypass authentication.
+Create an actual database-backed development admin with the controlled
+provisioning command. It is not exposed as a public endpoint and refuses to run
+unless both development safeguards are set:
 
-1. Add the business owner's verified email to `RANG_ADMIN_EMAILS` in the
-   Development environment only.
-2. Create or sign in to that account at `/sign-in` using the app's normal Clerk
-   flow. The first authenticated request creates the database user and grants
-   the allowlisted email the `admin` role.
-3. Open `/admin` to manage products, inventory, categories, orders, customers,
-   homepage content, and store settings.
-4. The account owner chooses and controls their own password in Clerk. Use the
-   sign-in screen's password-recovery flow if it needs to be reset.
-5. To grant another administrator, add their business-controlled email to the
-   Development `RANG_ADMIN_EMAILS` allowlist and have them sign in. Apply a
-   separate, deliberate allowlist change to Production only when authorized.
+```sh
+NODE_ENV=development RANG_ADMIN_PROVISION_CONFIRM=development \
+  pnpm --filter @workspace/api-server run provision-admin
+```
 
-Never put a shared password in the code, sample seed, or frontend. Development
-and production Clerk accounts are separate.
+The command prints a one-time temporary password. The default account email is
+`rang.admin@rang-auto-parts.test`; pass a different email as the first argument
+to create or promote an account for that address. It can promote an existing
+legacy user without changing the user's ID or order history. An account that
+already has a password is never overwritten by this command.
+
+1. Open `/admin/login` and sign in with the printed email and password.
+2. Change the temporary password under Account settings before using the
+   account for normal work.
+3. Create additional administrators by running the same command with their
+   email address. Share the one-time password through a private channel; they
+   should change it immediately after signing in.
+4. Run this command only against the development database. It refuses to run
+   with `NODE_ENV=production`; never publish a development account or password.
+
+Password recovery currently returns a clear service-unavailable response.
+Until an email-delivery transport is selected and configured, customers who
+cannot sign in must contact the RANG parts desk.
 
 ## Run locally
 
@@ -149,11 +153,10 @@ the complete payment flow has been tested.
 
 ## Current operating boundaries
 
-- Customer accounts use Clerk; development and production account directories
-  are separate.
+- Customer accounts use native email/password sessions stored in PostgreSQL.
 - Staff order and product operations require a database-backed `admin` or
-  `staff` role. The `RANG_ADMIN_EMAILS` allowlist provisions the initial admin
-  role on sign-in.
+  `staff` role. Initial admin access is provisioned using the guarded
+  development-only command above; there is no public admin-creation endpoint.
 - Delivery regions and fee, store contact details, and cash-on-delivery
   availability are managed in the admin settings.
 - Product images are limited to JPEG, PNG, or WebP, up to 5 MB per upload.

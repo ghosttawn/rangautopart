@@ -1,8 +1,8 @@
 import { Link, useLocation } from 'wouter';
-import { ArrowRight, Check, ChevronRight, Menu, PackageCheck, Search, ShieldCheck, ShoppingBag, Wrench, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Menu, PackageCheck, Search, ShieldCheck, ShoppingBag, Wrench, X, Plus, Minus } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
-import { getGetCartQueryKey, getListProductsQueryKey, useAddCartItem, useListProducts } from '@workspace/api-client-react';
+import { useEffect, useRef, useState } from 'react';
+import { getGetCartQueryKey, getListProductsQueryKey, useAddCartItem, useGetCart, useListProducts, useRemoveCartItem, useUpdateCartItem } from '@workspace/api-client-react';
 import type { ProductCard } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -12,6 +12,8 @@ export function Brand() {
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { data: cart } = useGetCart();
+  const cartCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const closeMenu = () => setMenuOpen(false);
   return <>
     <div className="topline">RANG AUTO PARTS &nbsp;·&nbsp; CASH ON DELIVERY AVAILABLE</div>
@@ -22,7 +24,7 @@ export function Header() {
       </nav>
       <span className="spacer" />
       <QuickSearch/>
-      <Link href="/cart" className="header-action" data-testid="link-cart"><ShoppingBag size={18}/><span>Cart</span></Link>
+      <Link href="/cart" className="header-action cart-nav-link" aria-label={`Cart${cartCount ? `, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}` : ', empty'}`} data-testid="link-cart"><ShoppingBag size={18}/><span>Cart</span><span className="cart-count" aria-live="polite" data-testid="text-cart-count">{cartCount}</span></Link>
       <Link href="/account" className="header-action header-account" data-testid="link-account"><span>Account</span></Link>
       <button type="button" className="header-action mobile-menu" aria-label={menuOpen?'Close navigation menu':'Open navigation menu'} aria-expanded={menuOpen} aria-controls="mobile-main-nav" onClick={()=>setMenuOpen(value=>!value)} data-testid="button-mobile-menu">{menuOpen?<X size={20}/>:<Menu size={20}/>}</button>
     </div>
@@ -49,7 +51,7 @@ function QuickSearch() {
     <form onSubmit={e=>{e.preventDefault();setLocation(`/catalog?q=${encodeURIComponent(term)}`);setOpen(false)}}>
       <label className="quick-search-input"><Search size={16}/><input aria-label="Find a part" placeholder="Find a part" value={term} onFocus={()=>setOpen(true)} onBlur={()=>window.setTimeout(()=>setOpen(false),120)} onChange={e=>{setTerm(e.target.value);setActive(-1);setOpen(true)}} onKeyDown={e=>{if(e.key==='ArrowDown'){e.preventDefault();setActive(v=>Math.min(items.length-1,v+1))}if(e.key==='ArrowUp'){e.preventDefault();setActive(v=>Math.max(-1,v-1))}if(e.key==='Enter'&&active>=0&&items[active]){e.preventDefault();choose(items[active].slug)}if(e.key==='Escape')setOpen(false)}} aria-expanded={open&&term.length>1} aria-controls="quick-search-results" autoComplete="off" data-testid="input-quick-search"/></label>
     </form>
-    {open&&term.trim().length>1&&<div className="search-suggest" id="quick-search-results" role="listbox" aria-label="Product suggestions">{query.isLoading?<div className="suggest-loading" role="status">Searching the catalog…</div>:query.isError?<div className="suggest-loading" role="status">Suggestions are unavailable. Search the catalog instead.</div>:items.length?items.map((p,i)=><Link href={`/product/${p.slug}`} role="option" aria-selected={active===i} key={p.id} onMouseDown={()=>setOpen(false)} data-testid={`suggestion-product-${p.id}`}>{p.imageUrl?<img src={p.imageUrl} alt=""/>:<span className="suggest-icon"><Wrench size={18}/></span>}<span className="suggest-copy"><strong>{p.name}</strong><small>{p.brand||p.category||'Part'} · SKU {p.sku}</small></span><ChevronRight size={15}/></Link>):<div className="suggest-loading">No matching parts yet.</div>}</div>}
+    {open&&term.trim().length>1&&<div className="search-suggest" id="quick-search-results" role="listbox" aria-label="Product suggestions">{query.isLoading?<div className="suggest-loading" role="status">Searching the catalog…</div>:query.isError?<div className="suggest-loading" role="status">Suggestions are unavailable. Search the catalog instead.</div>:items.length?items.map((p,i)=><Link href={`/product/${p.slug}`} role="option" aria-selected={active===i} key={p.id} onMouseDown={()=>setOpen(false)} data-testid={`suggestion-product-${p.id}`}>{p.imageUrl?<img src={p.imageUrl} alt="" loading="lazy" decoding="async"/>:<span className="suggest-icon"><Wrench size={18}/></span>}<span className="suggest-copy"><strong>{p.name}</strong><small>{p.brand||p.category||'Part'} · SKU {p.sku}</small></span><ChevronRight size={15}/></Link>):<div className="suggest-loading">No matching parts yet.</div>}</div>}
   </div>;
 }
 
@@ -62,11 +64,11 @@ export function Footer() {
 }
 
 export function PageFrame({children}: {children: ReactNode}) {
-  return <><Header/>{children}<Footer/></>;
+  return <><Header/><CartPreview/>{children}<Footer/></>;
 }
 
 export function ProductVisual({product, className=''}:{product:ProductCard;className?:string}) {
-  return <div className={`product-image ${className}`}>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <div className="image-fallback" aria-label="No product image available"><Wrench size={44} strokeWidth={1}/></div>}</div>;
+  return <div className={`product-image ${className}`}>{product.imageUrl ? <img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async"/> : <div className="image-fallback" aria-label="No product image available"><Wrench size={44} strokeWidth={1}/></div>}</div>;
 }
 
 export function ProductCardView({product,currency}:{product:ProductCard;currency?:string|null}) {
@@ -87,10 +89,70 @@ export function AddCartButton({product,quantity=1,testId,fullWidth=false}:{produ
   const mutation=useAddCartItem();
   const queryClient=useQueryClient();
   return <div>
-    <button className="btn btn-accent" style={{width:fullWidth?'100%':undefined}} disabled={product.stock<=0||mutation.isPending} onClick={()=>mutation.mutate({data:{productId:product.id,quantity}},{onSuccess:cart=>{queryClient.setQueryData(getGetCartQueryKey(),cart);void queryClient.invalidateQueries({queryKey:getGetCartQueryKey()})}})} data-testid={testId||`button-add-to-cart-${product.id}`}>
+    <button className="btn btn-accent" style={{width:fullWidth?'100%':undefined}} disabled={product.stock<=0||mutation.isPending} onClick={()=>mutation.mutate({data:{productId:product.id,quantity}},{onSuccess:cart=>{queryClient.setQueryData(getGetCartQueryKey(),cart);window.dispatchEvent(new CustomEvent('rang-cart-preview',{detail:{productId:product.id}}))}})} data-testid={testId||`button-add-to-cart-${product.id}`}>
       <ShoppingBag size={16}/>{product.stock<=0?'Out of stock':mutation.isPending?'Adding…':mutation.isSuccess?'Added to cart':'Add to cart'}
     </button>
     {mutation.isError&&<p className="notice error" role="alert" data-testid={`status-add-cart-error-${product.id}`} style={{fontSize:11,margin:'8px 0 0'}}>{mutation.error instanceof Error?mutation.error.message:'Unable to add this part to your cart.'}</p>}
+  </div>;
+}
+
+function CartPreview() {
+  const { data: cart } = useGetCart();
+  const update = useUpdateCartItem();
+  const remove = useRemoveCartItem();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [productId, setProductId] = useState<string | null>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const cartLine = cart?.items.find(item => item.productId === productId) ?? cart?.items[0];
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setProductId((event as CustomEvent<{productId:string}>).detail.productId);
+      setOpen(true);
+    };
+    window.addEventListener('rang-cart-preview', onOpen);
+    return () => window.removeEventListener('rang-cart-preview', onOpen);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setOpen(false); }
+      if (event.key === 'Tab') {
+        const items = document.querySelectorAll<HTMLElement>('[data-cart-drawer] button, [data-cart-drawer] a[href]');
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+  useEffect(() => {
+    if (open) return;
+    if (returnFocus.current?.isConnected) returnFocus.current.focus();
+  }, [open]);
+  const refresh = (cartValue: unknown) => {
+    queryClient.setQueryData(getGetCartQueryKey(), cartValue);
+  };
+  if (!open) return null;
+  return <div className="cart-drawer-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }}>
+    <section className="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-preview-title" data-cart-drawer data-testid="cart-preview-drawer">
+      <div className="cart-drawer-head"><div><div className="eyebrow">Added to your order</div><h2 className="display" id="cart-preview-title">Cart preview</h2></div><button ref={closeRef} type="button" className="cart-drawer-close" onClick={() => setOpen(false)} aria-label="Close cart preview" data-testid="button-close-cart-preview"><X size={19}/></button></div>
+      {cartLine ? <div className="cart-preview-item">
+        <Link href={`/product/${cartLine.product.slug}`} className="cart-preview-image" onClick={() => setOpen(false)} data-testid={`link-cart-preview-product-image-${cartLine.productId}`}>{cartLine.product.imageUrl ? <img src={cartLine.product.imageUrl} alt={cartLine.product.name} loading="lazy" decoding="async"/> : <Wrench size={28}/>}</Link>
+        <div className="cart-preview-copy"><div className="eyebrow">{cartLine.product.sku}</div><Link href={`/product/${cartLine.product.slug}`} onClick={() => setOpen(false)} data-testid={`link-cart-preview-product-${cartLine.productId}`}>{cartLine.product.name}</Link><div className="fitment-status">{cartLine.product.compatibilityStatus === 'verified' ? <><Check size={13}/> Fitment data verified</> : 'Fitment not verified — confirm before ordering'}</div>
+          <div className="cart-preview-controls"><button className="btn btn-outline" type="button" disabled={update.isPending || remove.isPending} aria-label="Decrease item quantity" onClick={() => cartLine.quantity <= 1 ? remove.mutate({ productId: cartLine.productId }, { onSuccess: refresh }) : update.mutate({ productId: cartLine.productId, data: { quantity: cartLine.quantity - 1 } }, { onSuccess: refresh })} data-testid={`button-cart-preview-minus-${cartLine.productId}`}><Minus size={13}/></button><span aria-label={`Quantity ${cartLine.quantity}`} className="mono" data-testid={`text-cart-preview-quantity-${cartLine.productId}`}>{cartLine.quantity}</span><button className="btn btn-outline" type="button" disabled={update.isPending || remove.isPending || cartLine.quantity >= 50} aria-label="Increase item quantity" onClick={() => update.mutate({ productId: cartLine.productId, data: { quantity: Math.min(50, cartLine.quantity + 1) } }, { onSuccess: refresh })} data-testid={`button-cart-preview-plus-${cartLine.productId}`}><Plus size={13}/></button><button className="cart-remove" type="button" disabled={remove.isPending} onClick={() => remove.mutate({ productId: cartLine.productId }, { onSuccess: refresh })} data-testid={`button-cart-preview-remove-${cartLine.productId}`}>Remove</button></div>
+        </div>
+      </div> : <div className="notice">Your cart is empty.</div>}
+      <div className="cart-preview-summary"><span>Subtotal</span><strong data-testid="text-cart-preview-subtotal">{money(cart?.subtotalMinor ?? 0, cart?.currency)}</strong></div>
+      <p className="cart-preview-note">Delivery is calculated in your cart. Fitment details can vary by model year; check before placing your order.</p>
+      {(update.isError || remove.isError) && <p className="notice error" role="alert">Cart could not be updated. Please try again.</p>}
+      <div className="cart-drawer-actions"><Link href="/cart" className="btn btn-outline" onClick={() => setOpen(false)} data-testid="link-open-full-cart">View full cart <ArrowRight size={15}/></Link><button type="button" className="btn btn-accent" onClick={() => setOpen(false)} data-testid="button-continue-shopping">Continue shopping</button></div>
+    </section>
   </div>;
 }
 

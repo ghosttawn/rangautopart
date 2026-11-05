@@ -11,6 +11,7 @@ tags:
   - name: cart
   - name: orders
   - name: account
+  - name: auth
   - name: admin
 paths:
   /healthz:
@@ -25,6 +26,118 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/session:
+    get:
+      operationId: getAuthSession
+      tags: [auth]
+      summary: Get the current native authentication session
+      responses:
+        "200":
+          description: Current session or signed-out state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+  /auth/register:
+    post:
+      operationId: registerAccount
+      tags: [auth]
+      summary: Register a customer account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Account created and signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "409":
+          description: Email address already in use
+  /auth/login:
+    post:
+      operationId: loginAccount
+      tags: [auth]
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Signed-in session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Email or password is incorrect
+  /auth/logout:
+    post:
+      operationId: logoutAccount
+      tags: [auth]
+      summary: End the current session
+      responses:
+        "204":
+          description: Session ended
+  /auth/forgot-password:
+    post:
+      operationId: requestPasswordReset
+      tags: [auth]
+      summary: Request a password recovery email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordInput"
+      responses:
+        "202":
+          description: Recovery request accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "503":
+          description: Email delivery is not configured
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Set a new password using a recovery token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "204":
+          description: Password changed and existing sessions revoked
+        "400":
+          description: Recovery link is invalid or expired
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change the signed-in account password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "204":
+          description: Password changed
+        "401":
+          description: Current password is incorrect or user is signed out
   /storefront:
     get:
       operationId: getStorefront
@@ -140,6 +253,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /sitemap.xml:
+    get:
+      operationId: getSitemap
+      tags: [storefront]
+      summary: Get public storefront and product sitemap
+      responses:
+        "200":
+          description: XML sitemap for public pages and published products
+          content:
+            application/xml:
+              schema: { type: string }
   /product-images/{imageId}:
     get:
       operationId: getProductImage
@@ -694,6 +818,59 @@ components:
       properties:
         error: { type: string }
         code: { type: string }
+    AuthUser:
+      type: object
+      required: [id, email, name, role]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        name: { type: string }
+        phone: { type: ["string", "null"] }
+        role: { type: string, enum: [customer, staff, admin] }
+    AuthSession:
+      type: object
+      required: [user, expiresAt]
+      properties:
+        user:
+          anyOf:
+            - $ref: "#/components/schemas/AuthUser"
+            - type: "null"
+        expiresAt: { type: ["string", "null"], format: date-time }
+    RegisterInput:
+      type: object
+      required: [email, password, name]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+        name: { type: string, minLength: 2, maxLength: 160 }
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 128 }
+    ForgotPasswordInput:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+    ResetPasswordInput:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string, minLength: 32, maxLength: 128 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+    ChangePasswordInput:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string, minLength: 1, maxLength: 128 }
+        newPassword: { type: string, minLength: 12, maxLength: 128 }
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
     Category:
       type: object
       required: [id, name, slug, productCount, imageUrl]

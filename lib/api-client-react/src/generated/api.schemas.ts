@@ -14,6 +14,90 @@ export interface ErrorResponse {
   code: string;
 }
 
+export type AuthUserRole = typeof AuthUserRole[keyof typeof AuthUserRole];
+
+
+export const AuthUserRole = {
+  customer: 'customer',
+  staff: 'staff',
+  admin: 'admin',
+} as const;
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  role: AuthUserRole;
+}
+
+export interface AuthSession {
+  user: AuthUser | null;
+  /** @nullable */
+  expiresAt: string | null;
+}
+
+export interface RegisterInput {
+  /** @maxLength 254 */
+  email: string;
+  /**
+     * @minLength 12
+     * @maxLength 128
+     */
+  password: string;
+  /**
+     * @minLength 2
+     * @maxLength 160
+     */
+  name: string;
+}
+
+export interface LoginInput {
+  /** @maxLength 254 */
+  email: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  password: string;
+}
+
+export interface ForgotPasswordInput {
+  /** @maxLength 254 */
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  /**
+     * @minLength 32
+     * @maxLength 128
+     */
+  token: string;
+  /**
+     * @minLength 12
+     * @maxLength 128
+     */
+  password: string;
+}
+
+export interface ChangePasswordInput {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  currentPassword: string;
+  /**
+     * @minLength 12
+     * @maxLength 128
+     */
+  newPassword: string;
+}
+
+export interface Message {
+  message: string;
+}
+
 export interface Category {
   id: string;
   name: string;

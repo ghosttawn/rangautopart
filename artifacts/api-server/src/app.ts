@@ -4,11 +4,8 @@ import pinoHttp from "pino-http";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { clerkMiddleware } from "@clerk/express";
-import { publishableKeyFromHost } from "@clerk/shared/keys";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import { HttpError } from "./middlewares/auth";
 
 const app: Express = express();
@@ -34,9 +31,6 @@ app.use(
   }),
 );
 
-// The Clerk Frontend API proxy must receive the untouched request body.
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-
 app.use(
   cors((req, callback) => {
     const origin = req.header("origin");
@@ -61,15 +55,6 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false 
 app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
-
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      req.hostname,
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
-);
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

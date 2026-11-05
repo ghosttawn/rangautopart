@@ -11,7 +11,6 @@ import {
   UpdateAccountBody,
   UpdateAccountResponse,
 } from "@workspace/api-zod";
-import { clerkClient } from "@clerk/express";
 import {
   cartItemsTable,
   cartsTable,
@@ -43,7 +42,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
     return;
   }
 
-  const user = await resolveCurrentUser(req);
+  const user = await resolveCurrentUser(req, res);
   const { cartId, sessionId } = await getOrCreateCart(req, res, user);
   const settings = await getSettings();
   const input = parsed.data;
@@ -204,7 +203,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
 });
 
 router.get("/account", async (req, res): Promise<void> => {
-  const user = await resolveCurrentUser(req);
+  const user = await resolveCurrentUser(req, res);
   if (!user) {
     res.status(401).json(errorResponse("Sign in to view your account.", "UNAUTHENTICATED"));
     return;
@@ -231,19 +230,12 @@ router.patch("/account", async (req, res): Promise<void> => {
     res.status(400).json(errorResponse("Enter a valid name or phone number.", "INVALID_ACCOUNT"));
     return;
   }
-  const user = await resolveCurrentUser(req);
+  const user = await resolveCurrentUser(req, res);
   if (!user) {
     res.status(401).json(errorResponse("Sign in to update your account.", "UNAUTHENTICATED"));
     return;
   }
 
-  if (body.data.name !== undefined) {
-    const parts = body.data.name.trim().split(/\s+/);
-    await clerkClient.users.updateUser(user.id, {
-      firstName: parts[0],
-      lastName: parts.slice(1).join(" ") || undefined,
-    });
-  }
   const [updated] = await db
     .update(usersTable)
     .set({
@@ -274,7 +266,7 @@ router.patch("/account", async (req, res): Promise<void> => {
 });
 
 router.get("/orders", async (req, res): Promise<void> => {
-  const user = await resolveCurrentUser(req);
+  const user = await resolveCurrentUser(req, res);
   if (!user) {
     res.status(401).json(errorResponse("Sign in to view your orders.", "UNAUTHENTICATED"));
     return;
@@ -295,7 +287,7 @@ router.get("/orders/:orderNumber", async (req, res): Promise<void> => {
     res.status(404).json(errorResponse("Order not found.", "ORDER_NOT_FOUND"));
     return;
   }
-  const user = await resolveCurrentUser(req);
+  const user = await resolveCurrentUser(req, res);
   const sessionId = req.cookies?.rang_cart_session;
   const [order] = await db
     .select()
