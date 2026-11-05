@@ -1822,6 +1822,107 @@ export const useCreateProduct = <TError = ErrorType<unknown>,
       return useMutation(getCreateProductMutationOptions(options), queryClient);
     }
 
+export const getGetAdminProductUrl = (productId: string,) => {
+
+
+
+
+  return `/api/admin/products/${productId}`
+}
+
+/**
+ * @summary Get complete product details for administration
+ */
+export const getAdminProduct = async (productId: string, options?: Parameters<typeof customFetch>[1]): Promise<Product> => {
+
+  return customFetch<Product>(getGetAdminProductUrl(productId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminProductQueryKey = (productId: string,) => {
+    return [
+    `/api/admin/products/${productId}`
+    ] as const;
+    }
+
+
+export const getGetAdminProductQueryOptions = <TData = Awaited<ReturnType<typeof getAdminProduct>>, TError = ErrorType<void>>(productId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminProduct>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminProductQueryKey(productId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminProduct>>> = ({ signal }) => getAdminProduct(productId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: productId !== null && productId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminProduct>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAdminProductQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminProduct>>>
+export type GetAdminProductQueryError = ErrorType<void>
+
+
+export function useGetAdminProduct<TData = Awaited<ReturnType<typeof getAdminProduct>>, TError = ErrorType<void>>(
+ productId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminProduct>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminProduct>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminProduct>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAdminProduct<TData = Awaited<ReturnType<typeof getAdminProduct>>, TError = ErrorType<void>>(
+ productId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminProduct>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminProduct>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminProduct>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAdminProduct<TData = Awaited<ReturnType<typeof getAdminProduct>>, TError = ErrorType<void>>(
+ productId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminProduct>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get complete product details for administration
+ */
+
+export function useGetAdminProduct<TData = Awaited<ReturnType<typeof getAdminProduct>>, TError = ErrorType<void>>(
+ productId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminProduct>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAdminProductQueryOptions(productId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateProductUrl = (productId: string,) => {
 
 
@@ -2063,6 +2164,82 @@ export const useUploadProductImage = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUploadProductImageMutationOptions(options), queryClient);
+    }
+
+export const getDeleteProductImageUrl = (productId: string,
+    imageId: string,) => {
+
+
+
+
+  return `/api/admin/products/${productId}/images/${imageId}`
+}
+
+/**
+ * @summary Remove a product image
+ */
+export const deleteProductImage = async (productId: string,
+    imageId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteProductImageUrl(productId,imageId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteProductImageMutationKey = () => ['deleteProductImage'] as const;
+
+export const getDeleteProductImageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProductImage>>, TError,DeleteProductImageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProductImage>>, TError,DeleteProductImageMutationVariables, TContext> => {
+
+const mutationKey = getDeleteProductImageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProductImage>>, DeleteProductImageMutationVariables> = (props) => {
+          const {productId,imageId} = props ?? {};
+
+          return  deleteProductImage(productId,imageId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteProductImageMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProductImage>>>
+
+    export type DeleteProductImageMutationError = ErrorType<unknown>
+    export type DeleteProductImageMutationVariables = {productId: string;imageId: string}
+
+    /**
+ * @summary Remove a product image
+ */
+export const useDeleteProductImage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProductImage>>, TError,DeleteProductImageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProductImage>>,
+        TError,
+        DeleteProductImageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteProductImageMutationOptions(options), queryClient);
     }
 
 export const getListAdminCategoriesUrl = () => {

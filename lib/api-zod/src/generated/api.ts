@@ -634,6 +634,61 @@ export const CreateProductResponse = zod.object({
 
 
 /**
+ * @summary Get complete product details for administration
+ */
+export const GetAdminProductParams = zod.object({
+  "productId": zod.coerce.string().uuid()
+})
+
+export const GetAdminProductResponse = zod.object({
+  "id": zod.string(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sku": zod.string(),
+  "brand": zod.string().nullable(),
+  "priceMinor": zod.number().int(),
+  "salePriceMinor": zod.number().int().nullable(),
+  "stock": zod.number().int(),
+  "published": zod.boolean(),
+  "compatibilityStatus": zod.enum(['verified', 'unknown']),
+  "imageUrl": zod.string().nullable(),
+  "category": zod.string().nullable()
+}).and(zod.object({
+  "description": zod.string(),
+  "specifications": zod.record(zod.string(), zod.unknown()),
+  "images": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "contentType": zod.enum(['image/jpeg', 'image/png', 'image/webp']),
+  "size": zod.number().int(),
+  "altText": zod.string().nullish()
+})),
+  "compatibility": zod.array(zod.object({
+  "make": zod.string(),
+  "model": zod.string(),
+  "yearFrom": zod.number().int(),
+  "yearTo": zod.number().int(),
+  "verified": zod.boolean()
+})),
+  "createdAt": zod.coerce.date(),
+  "related": zod.array(zod.object({
+  "id": zod.string(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sku": zod.string(),
+  "brand": zod.string().nullable(),
+  "priceMinor": zod.number().int(),
+  "salePriceMinor": zod.number().int().nullable(),
+  "stock": zod.number().int(),
+  "published": zod.boolean(),
+  "compatibilityStatus": zod.enum(['verified', 'unknown']),
+  "imageUrl": zod.string().nullable(),
+  "category": zod.string().nullable()
+})).optional()
+}))
+
+
+/**
  * @summary Update a product
  */
 export const UpdateProductParams = zod.object({
@@ -766,6 +821,17 @@ export const UploadProductImageResponse = zod.object({
   "size": zod.number().int(),
   "altText": zod.string().nullish()
 })
+
+
+/**
+ * @summary Remove a product image
+ */
+export const DeleteProductImageParams = zod.object({
+  "productId": zod.coerce.string().uuid(),
+  "imageId": zod.coerce.string().uuid()
+})
+
+export const DeleteProductImageResponse = zod.void()
 
 
 /**

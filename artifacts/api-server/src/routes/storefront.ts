@@ -91,12 +91,13 @@ router.get("/products", async (req, res): Promise<void> => {
   const query = parsed.data;
   const page = query.page ?? 1;
   const limit = query.limit ?? 24;
+  const searchText = query.q?.trim().slice(0, 120);
   const where: ReturnType<typeof eq>[] = [
     eq(productsTable.published, true),
     eq(categoriesTable.active, true),
   ];
-  if (query.q?.trim()) {
-    const term = `%${query.q.trim().slice(0, 120)}%`;
+  if (searchText) {
+    const term = `%${searchText}%`;
     where.push(
       or(
         ilike(productsTable.name, term),
@@ -145,12 +146,27 @@ router.get("/products", async (req, res): Promise<void> => {
     Boolean(query.compatibilityMake || query.compatibilityModel) ||
     query.compatibilityYear !== undefined;
   const sort = query.sort ?? "relevance";
+  const relevanceRank = searchText
+    ? sql<number>`CASE
+        WHEN ${productsTable.name} ILIKE ${searchText}
+          OR ${productsTable.sku} ILIKE ${searchText} THEN 0
+        WHEN ${productsTable.name} ILIKE ${`${searchText}%`}
+          OR ${productsTable.sku} ILIKE ${`${searchText}%`} THEN 1
+        ELSE 2
+      END`
+    : undefined;
   const orderBy =
     sort === "price_asc"
       ? [asc(effectivePrice), asc(productsTable.name)]
       : sort === "price_desc"
         ? [desc(effectivePrice), asc(productsTable.name)]
-        : [desc(productsTable.createdAt), asc(productsTable.name)];
+        : sort === "relevance" && relevanceRank
+          ? [
+              relevanceRank,
+              desc(productsTable.createdAt),
+              asc(productsTable.name),
+            ]
+          : [desc(productsTable.createdAt), asc(productsTable.name)];
   const [countResult, resultRows] = await Promise.all([
     db
       .select({ total: sql<number>`count(DISTINCT ${productsTable.id})::int` })

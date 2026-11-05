@@ -1,7 +1,8 @@
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { ArrowRight, Check, ChevronRight, PackageCheck, Search, ShieldCheck, ShoppingBag, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { getGetCartQueryKey, useAddCartItem } from '@workspace/api-client-react';
+import { useState } from 'react';
+import { getGetCartQueryKey, getListProductsQueryKey, useAddCartItem, useListProducts } from '@workspace/api-client-react';
 import type { ProductCard } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -18,12 +19,29 @@ export function Header() {
         <Link href="/catalog" data-testid="link-parts-catalog">Parts catalog</Link><Link href="/about" data-testid="link-about">Our standard</Link><Link href="/contact" data-testid="link-contact">Contact</Link>
       </nav>
       <span className="spacer" />
-      <Link href="/catalog" className="header-action" data-testid="link-search"><Search size={17}/><span className="desktop-label">Find a part</span></Link>
+      <QuickSearch/>
       <Link href="/cart" className="header-action" data-testid="link-cart"><ShoppingBag size={18}/><span>Cart</span></Link>
       <Link href="/account" className="header-action" data-testid="link-account"><span>Account</span></Link>
       <Link href="/catalog" className="header-action mobile-menu" aria-label="Open parts catalog" data-testid="link-mobile-catalog"><Search size={19}/></Link>
     </div></header>
   </>;
+}
+
+function QuickSearch() {
+  const [,setLocation]=useLocation();
+  const [term,setTerm]=useState('');
+  const [open,setOpen]=useState(false);
+  const [active,setActive]=useState(-1);
+  const searchParams={q:term.trim(),page:1,limit:5,availability:'all' as const};
+  const query=useListProducts(searchParams,{query:{enabled:term.trim().length>1,queryKey:getListProductsQueryKey(searchParams)}});
+  const items=query.data?.items??[];
+  const choose=(slug:string)=>{setLocation(`/product/${encodeURIComponent(slug)}`);setOpen(false)};
+  return <div className="quick-search">
+    <form onSubmit={e=>{e.preventDefault();setLocation(`/catalog?q=${encodeURIComponent(term)}`);setOpen(false)}}>
+      <label className="quick-search-input"><Search size={16}/><input aria-label="Find a part" placeholder="Find a part" value={term} onFocus={()=>setOpen(true)} onBlur={()=>window.setTimeout(()=>setOpen(false),120)} onChange={e=>{setTerm(e.target.value);setActive(-1);setOpen(true)}} onKeyDown={e=>{if(e.key==='ArrowDown'){e.preventDefault();setActive(v=>Math.min(items.length-1,v+1))}if(e.key==='ArrowUp'){e.preventDefault();setActive(v=>Math.max(-1,v-1))}if(e.key==='Enter'&&active>=0&&items[active]){e.preventDefault();choose(items[active].slug)}if(e.key==='Escape')setOpen(false)}} aria-expanded={open&&term.length>1} aria-controls="quick-search-results" autoComplete="off" data-testid="input-quick-search"/></label>
+    </form>
+    {open&&term.trim().length>1&&<div className="search-suggest" id="quick-search-results" role="listbox" aria-label="Product suggestions">{query.isLoading?<div className="suggest-loading" role="status">Searching the catalog…</div>:query.isError?<div className="suggest-loading" role="status">Suggestions are unavailable. Search the catalog instead.</div>:items.length?items.map((p,i)=><Link href={`/product/${p.slug}`} role="option" aria-selected={active===i} key={p.id} onMouseDown={()=>setOpen(false)} data-testid={`suggestion-product-${p.id}`}>{p.imageUrl?<img src={p.imageUrl} alt=""/>:<span className="suggest-icon"><Wrench size={18}/></span>}<span className="suggest-copy"><strong>{p.name}</strong><small>{p.brand||p.category||'Part'} · SKU {p.sku}</small></span><ChevronRight size={15}/></Link>):<div className="suggest-loading">No matching parts yet.</div>}</div>}
+  </div>;
 }
 
 export function Footer() {
@@ -49,7 +67,7 @@ export function ProductCardView({product,currency}:{product:ProductCard;currency
       <ProductVisual product={product}/>
       <div className="product-details"><div className="eyebrow">{product.category || 'Parts'}{product.brand ? ` / ${product.brand}` : ''}</div>
         <h3>{product.name}</h3><div className="product-price">{money(price, currency)} {product.salePriceMinor != null && <span className="old-price">{money(product.priceMinor,currency)}</span>}</div>
-        <div style={{marginTop:12,display:'flex',justifyContent:'space-between',alignItems:'center'}}><span className="status-pill">{product.stock > 0 ? 'In stock' : 'Check availability'}</span><ChevronRight size={16}/></div>
+        <div style={{marginTop:12,display:'flex',justifyContent:'space-between',alignItems:'center',gap:7}}><span className="status-pill">{product.stock > 0 ? `${product.stock} in stock` : 'Check availability'}</span><span className="fitment-status" title={product.compatibilityStatus==='verified'?'Fitment information verified':'Fitment has not been verified'}>{product.compatibilityStatus==='verified'?<><Check size={13}/>Fitment verified</>:<>Fitment unknown</>}</span></div>
       </div>
     </Link>
     <div style={{padding:'0 15px 15px'}}><AddCartButton product={product} testId={`button-add-to-cart-${product.id}`} fullWidth/></div>

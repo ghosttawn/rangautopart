@@ -8,8 +8,12 @@ import {
   CreateProductResponse,
   DeleteCategoryParams,
   DeleteCategoryResponse,
+  DeleteProductImageParams,
+  DeleteProductImageResponse,
   DeleteProductParams,
   DeleteProductResponse,
+  GetAdminProductParams,
+  GetAdminProductResponse,
   GetAdminOverviewResponse,
   GetAdminSettingsResponse,
   ListAdminCategoriesResponse,
@@ -281,6 +285,20 @@ router.get("/admin/products", async (req, res): Promise<void> => {
   );
 });
 
+router.get("/admin/products/:productId", async (req, res): Promise<void> => {
+  const params = GetAdminProductParams.safeParse(req.params);
+  if (!params.success || !UUID_PATTERN.test(params.data.productId)) {
+    res.status(400).json(errorResponse("Invalid product.", "INVALID_PRODUCT"));
+    return;
+  }
+  const product = await productDto(params.data.productId);
+  if (!product) {
+    res.status(404).json(errorResponse("Product not found.", "PRODUCT_NOT_FOUND"));
+    return;
+  }
+  res.json(GetAdminProductResponse.parse(product));
+});
+
 router.post("/admin/products", async (req, res): Promise<void> => {
   const parsed = CreateProductBody.safeParse(req.body);
   if (!parsed.success) {
@@ -380,6 +398,25 @@ router.patch("/admin/products/:productId", async (req, res): Promise<void> => {
     return;
   }
   const product = await db.transaction(async (tx) => {
+    const [currentProduct] = await tx
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, params.data.productId))
+      .for("update")
+      .limit(1);
+    if (!currentProduct) return null;
+    const nextPrice = productFields.priceMinor ?? currentProduct.priceMinor;
+    const nextSalePrice =
+      productFields.salePriceMinor === undefined
+        ? currentProduct.salePriceMinor
+        : productFields.salePriceMinor;
+    if (nextSalePrice !== null && nextSalePrice >= nextPrice) {
+      throw new HttpError(
+        400,
+        "INVALID_SALE_PRICE",
+        "The sale price must be lower than the regular price.",
+      );
+    }
     if (compatibility !== undefined) {
       await replaceCompatibility(tx, params.data.productId, compatibility);
     }
@@ -469,6 +506,36 @@ router.post(
     res.status(201).json(
       UploadProductImageResponse.parse(image ? publicImageDto(image) : undefined),
     );
+  },
+);
+
+router.delete(
+  "/admin/products/:productId/images/:imageId",
+  async (req, res): Promise<void> => {
+    const params = DeleteProductImageParams.safeParse(req.params);
+    if (
+      !params.success ||
+      !UUID_PATTERN.test(params.data.productId) ||
+      !UUID_PATTERN.test(params.data.imageId)
+    ) {
+      res.status(400).json(errorResponse("Invalid product image.", "INVALID_IMAGE"));
+      return;
+    }
+    const [deleted] = await db
+      .delete(productImagesTable)
+      .where(
+        and(
+          eq(productImagesTable.id, params.data.imageId),
+          eq(productImagesTable.productId, params.data.productId),
+        ),
+      )
+      .returning({ id: productImagesTable.id });
+    if (!deleted) {
+      res.status(404).json(errorResponse("Product image not found.", "IMAGE_NOT_FOUND"));
+      return;
+    }
+    res.status(204).send();
+    DeleteProductImageResponse.parse(undefined);
   },
 );
 
@@ -636,6 +703,24 @@ router.patch("/admin/orders/:orderId", async (req, res): Promise<void> => {
     if (!current) return null;
     const nextStatus = parsed.data.orderStatus ?? current.orderStatus;
     const nextPayment = parsed.data.paymentStatus ?? current.paymentStatus;
+    if (current.orderStatus === "cancelled" && nextStatus !== "cancelled") {
+      throw new HttpError(
+        409,
+        "ORDER_ALREADY_CANCELLED",
+        "A cancelled order cannot be reopened; create a new order instead.",
+      );
+    }
+    if (
+      nextPayment === "refunded" &&
+      current.paymentStatus !== "paid" &&
+      current.paymentStatus !== "refunded"
+    ) {
+      throw new HttpError(
+        409,
+        "PAYMENT_NOT_CAPTURED",
+        "Only a payment already recorded as paid can be marked refunded.",
+      );
+    }
     if (
       nextStatus === "cancelled" &&
       current.paymentStatus === "paid" &&

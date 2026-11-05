@@ -365,6 +365,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/Product"
   /admin/products/{productId}:
+    get:
+      operationId: getAdminProduct
+      tags: [admin]
+      summary: Get complete product details for administration
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Product not found
     patch:
       operationId: updateProduct
       tags: [admin]
@@ -422,6 +440,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProductImage"
+  /admin/products/{productId}/images/{imageId}:
+    delete:
+      operationId: deleteProductImage
+      tags: [admin]
+      summary: Remove a product image
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: imageId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Image removed
   /admin/categories:
     get:
       operationId: listAdminCategories

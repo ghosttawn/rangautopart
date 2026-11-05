@@ -1,6 +1,6 @@
-# [Project name]
+# RANG Auto Parts
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A parts storefront and operations dashboard for RANG ATV/AUTO PART/V ACCESSORIES, with catalog search, vehicle fitment data, persistent carts, cash-on-delivery orders, and staff-managed inventory.
 
 ## Run & Operate
 
@@ -22,15 +22,21 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/rang-auto-parts` — customer storefront and staff dashboard
+- `artifacts/api-server` — API, Clerk verification, authorization, commerce operations
+- `lib/api-spec/openapi.yaml` — API contract source of truth
+- `lib/db/src/schema/` — PostgreSQL schema source of truth
+- `docs/OPERATIONS.md` — environment setup, schema changes, deployment, backup, and restore
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Clerk authenticates users; application roles are enforced by the API and stored in PostgreSQL.
+- The API calculates prices and inventory changes during checkout; online payments remain disabled until a provider is fully verified.
+- Product image bytes are stored in PostgreSQL so database backups include the catalog's images.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Customers can browse and search published parts, check verified fitment, keep a cart across visits, and place cash-on-delivery orders. Authorized staff can manage products, categories, orders, customer records, fulfillment, and store settings.
 
 ## User preferences
 
@@ -43,3 +49,4 @@ _Populate as you build — sharp edges, "always run X before Y" rules._
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See `docs/OPERATIONS.md` for deployment configuration and data portability instructions

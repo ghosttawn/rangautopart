@@ -15,12 +15,17 @@ import {
   productsTable,
   storeSettingsTable,
   usersTable,
-  type Product,
-  type StoreSettings,
-  type User,
 } from "@workspace/db";
-import type { Cart, CartItem, ProductCard } from "@workspace/api-zod";
-import type { Category, Product, ProductImage, StoreSettings, User } from "@workspace/db";
+import type { Cart as CartResponse, CartItem, ProductCard } from "@workspace/api-zod";
+import type {
+  Cart as DatabaseCart,
+  Category,
+  Order,
+  Product,
+  ProductImage,
+  StoreSettings,
+  User,
+} from "@workspace/db";
 
 const DEFAULT_SETTINGS: StoreSettings = {
   id: 1,
@@ -188,14 +193,14 @@ export async function getOrCreateCart(
 ) {
   const sessionId = getCartSessionId(req, res);
   return db.transaction(async (tx) => {
-    let cart: Cart | undefined;
+    let cart: DatabaseCart | undefined;
     if (user) {
       [cart] = await tx
         .select()
         .from(cartsTable)
         .where(eq(cartsTable.userId, user.id))
         .limit(1);
-      let guestCart: Cart | undefined;
+      let guestCart: DatabaseCart | undefined;
       [guestCart] = await tx
         .select()
         .from(cartsTable)
@@ -314,7 +319,7 @@ export async function cartDto(cartId: string) {
     subtotalMinor,
     deliveryFeeMinor,
     totalMinor: subtotalMinor + deliveryFeeMinor,
-  } satisfies Cart;
+  } satisfies CartResponse;
   return response;
 }
 
