@@ -29,7 +29,15 @@ export const GetStorefrontResponse = zod.object({
   "onlinePaymentsEnabled": zod.boolean(),
   "storeName": zod.string(),
   "supportEmail": zod.string().nullish(),
-  "contactPhone": zod.string().nullish()
+  "contactPhone": zod.string().nullish(),
+  "heroTitle": zod.string(),
+  "heroHighlight": zod.string(),
+  "heroDescription": zod.string(),
+  "heroImageUrl": zod.string(),
+  "promotionalTitle": zod.string(),
+  "promotionalBody": zod.string(),
+  "promotionalActionLabel": zod.string(),
+  "promotionalUrl": zod.string()
 }),
   "categories": zod.array(zod.object({
   "id": zod.string(),
@@ -37,6 +45,7 @@ export const GetStorefrontResponse = zod.object({
   "slug": zod.string(),
   "description": zod.string().nullish(),
   "productCount": zod.number().int(),
+  "imageUrl": zod.string().nullable(),
   "active": zod.boolean().optional()
 })),
   "featured": zod.array(zod.object({
@@ -49,11 +58,18 @@ export const GetStorefrontResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
 }))
 })
+
+
+/**
+ * @summary Get the current homepage hero image
+ */
+export const GetHeroImageResponse = zod.unknown()
 
 
 /**
@@ -65,6 +81,7 @@ export const ListCategoriesResponseItem = zod.object({
   "slug": zod.string(),
   "description": zod.string().nullish(),
   "productCount": zod.number().int(),
+  "imageUrl": zod.string().nullable(),
   "active": zod.boolean().optional()
 })
 export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
@@ -113,6 +130,7 @@ export const ListProductsResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -140,6 +158,7 @@ export const GetProductResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -171,6 +190,7 @@ export const GetProductResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -207,6 +227,7 @@ export const GetCartResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -247,6 +268,7 @@ export const AddCartItemResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -290,6 +312,7 @@ export const UpdateCartItemResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -325,6 +348,7 @@ export const RemoveCartItemResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -527,6 +551,7 @@ export const ListAdminProductsResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -576,6 +601,7 @@ export const CreateProductBody = zod.object({
   "specifications": zod.record(zod.string(), zod.unknown()).optional(),
   "stock": zod.number().int().min(createProductBodyStockMin),
   "published": zod.boolean().optional(),
+  "featured": zod.boolean().optional(),
   "compatibility": zod.array(zod.object({
   "make": zod.string().min(1).max(createProductBodyCompatibilityItemMakeMax),
   "model": zod.string().min(1).max(createProductBodyCompatibilityItemModelMax),
@@ -595,6 +621,7 @@ export const CreateProductResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -626,6 +653,7 @@ export const CreateProductResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -650,6 +678,7 @@ export const GetAdminProductResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -681,6 +710,7 @@ export const GetAdminProductResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -731,6 +761,7 @@ export const UpdateProductBody = zod.object({
   "specifications": zod.record(zod.string(), zod.unknown()).optional(),
   "stock": zod.number().int().min(updateProductBodyStockMin).optional(),
   "published": zod.boolean().optional(),
+  "featured": zod.boolean().optional(),
   "compatibility": zod.array(zod.object({
   "make": zod.string().min(1).max(updateProductBodyCompatibilityItemMakeMax),
   "model": zod.string().min(1).max(updateProductBodyCompatibilityItemModelMax),
@@ -750,6 +781,7 @@ export const UpdateProductResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -781,6 +813,7 @@ export const UpdateProductResponse = zod.object({
   "salePriceMinor": zod.number().int().nullable(),
   "stock": zod.number().int(),
   "published": zod.boolean(),
+  "featured": zod.boolean(),
   "compatibilityStatus": zod.enum(['verified', 'unknown']),
   "imageUrl": zod.string().nullable(),
   "category": zod.string().nullable()
@@ -843,6 +876,7 @@ export const ListAdminCategoriesResponseItem = zod.object({
   "slug": zod.string(),
   "description": zod.string().nullish(),
   "productCount": zod.number().int(),
+  "imageUrl": zod.string().nullable(),
   "active": zod.boolean().optional()
 })
 export const ListAdminCategoriesResponse = zod.array(ListAdminCategoriesResponseItem)
@@ -870,6 +904,7 @@ export const CreateCategoryResponse = zod.object({
   "slug": zod.string(),
   "description": zod.string().nullish(),
   "productCount": zod.number().int(),
+  "imageUrl": zod.string().nullable(),
   "active": zod.boolean().optional()
 })
 
@@ -900,6 +935,7 @@ export const UpdateCategoryResponse = zod.object({
   "slug": zod.string(),
   "description": zod.string().nullish(),
   "productCount": zod.number().int(),
+  "imageUrl": zod.string().nullable(),
   "active": zod.boolean().optional()
 })
 
@@ -912,6 +948,28 @@ export const DeleteCategoryParams = zod.object({
 })
 
 export const DeleteCategoryResponse = zod.void()
+
+
+/**
+ * @summary Upload a category image
+ */
+export const UploadCategoryImageParams = zod.object({
+  "categoryId": zod.coerce.string().uuid()
+})
+
+export const UploadCategoryImageBody = zod.object({
+  "file": zod.instanceof(Blob)
+})
+
+export const UploadCategoryImageResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "description": zod.string().nullish(),
+  "productCount": zod.number().int(),
+  "imageUrl": zod.string().nullable(),
+  "active": zod.boolean().optional()
+})
 
 
 /**
@@ -1046,7 +1104,15 @@ export const GetAdminSettingsResponse = zod.object({
   "onlinePaymentsEnabled": zod.boolean(),
   "storeName": zod.string(),
   "supportEmail": zod.string().nullish(),
-  "contactPhone": zod.string().nullish()
+  "contactPhone": zod.string().nullish(),
+  "heroTitle": zod.string(),
+  "heroHighlight": zod.string(),
+  "heroDescription": zod.string(),
+  "heroImageUrl": zod.string(),
+  "promotionalTitle": zod.string(),
+  "promotionalBody": zod.string(),
+  "promotionalActionLabel": zod.string(),
+  "promotionalUrl": zod.string()
 })
 
 
@@ -1060,6 +1126,19 @@ export const updateAdminSettingsBodyStoreNameMax = 140;
 
 export const updateAdminSettingsBodyContactPhoneMax = 32;
 
+export const updateAdminSettingsBodyHeroTitleMax = 80;
+
+export const updateAdminSettingsBodyHeroHighlightMax = 100;
+
+export const updateAdminSettingsBodyHeroDescriptionMax = 500;
+
+export const updateAdminSettingsBodyPromotionalTitleMax = 120;
+
+export const updateAdminSettingsBodyPromotionalBodyMax = 400;
+
+export const updateAdminSettingsBodyPromotionalActionLabelMax = 60;
+
+export const updateAdminSettingsBodyPromotionalUrlRegExp = new RegExp('^/(?!/)[a-zA-Z0-9/_?=&%-]*$');
 
 
 export const UpdateAdminSettingsBody = zod.object({
@@ -1070,7 +1149,14 @@ export const UpdateAdminSettingsBody = zod.object({
   "onlinePaymentsEnabled": zod.literal(false).optional(),
   "storeName": zod.string().min(1).max(updateAdminSettingsBodyStoreNameMax).optional(),
   "supportEmail": zod.string().email().nullish(),
-  "contactPhone": zod.string().max(updateAdminSettingsBodyContactPhoneMax).nullish()
+  "contactPhone": zod.string().max(updateAdminSettingsBodyContactPhoneMax).nullish(),
+  "heroTitle": zod.string().min(1).max(updateAdminSettingsBodyHeroTitleMax).optional(),
+  "heroHighlight": zod.string().min(1).max(updateAdminSettingsBodyHeroHighlightMax).optional(),
+  "heroDescription": zod.string().min(1).max(updateAdminSettingsBodyHeroDescriptionMax).optional(),
+  "promotionalTitle": zod.string().min(1).max(updateAdminSettingsBodyPromotionalTitleMax).optional(),
+  "promotionalBody": zod.string().min(1).max(updateAdminSettingsBodyPromotionalBodyMax).optional(),
+  "promotionalActionLabel": zod.string().min(1).max(updateAdminSettingsBodyPromotionalActionLabelMax).optional(),
+  "promotionalUrl": zod.string().regex(updateAdminSettingsBodyPromotionalUrlRegExp).optional()
 })
 
 export const UpdateAdminSettingsResponse = zod.object({
@@ -1082,7 +1168,29 @@ export const UpdateAdminSettingsResponse = zod.object({
   "onlinePaymentsEnabled": zod.boolean(),
   "storeName": zod.string(),
   "supportEmail": zod.string().nullish(),
-  "contactPhone": zod.string().nullish()
+  "contactPhone": zod.string().nullish(),
+  "heroTitle": zod.string(),
+  "heroHighlight": zod.string(),
+  "heroDescription": zod.string(),
+  "heroImageUrl": zod.string(),
+  "promotionalTitle": zod.string(),
+  "promotionalBody": zod.string(),
+  "promotionalActionLabel": zod.string(),
+  "promotionalUrl": zod.string()
+})
+
+
+/**
+ * @summary Replace the homepage hero image
+ */
+export const UploadHeroImageBody = zod.object({
+  "file": zod.instanceof(Blob)
+})
+
+export const UploadHeroImageResponse = zod.object({
+  "url": zod.string(),
+  "contentType": zod.enum(['image/jpeg', 'image/png', 'image/webp']),
+  "size": zod.number().int()
 })
 
 

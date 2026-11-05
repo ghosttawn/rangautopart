@@ -45,6 +45,19 @@ function errorResponse(message: string, code: string) {
   return { error: message, code };
 }
 
+router.get("/storefront/hero-image", async (_req, res): Promise<void> => {
+  const settings = await getSettings();
+  if (!settings.heroImageData || !settings.heroImageContentType) {
+    res.status(404).end();
+    return;
+  }
+  res
+    .status(200)
+    .type(settings.heroImageContentType)
+    .set("Cache-Control", "no-store")
+    .send(settings.heroImageData);
+});
+
 router.get("/storefront", async (_req, res): Promise<void> => {
   const [settings, categories, featuredProducts] = await Promise.all([
     getSettings(),
@@ -56,7 +69,13 @@ router.get("/storefront", async (_req, res): Promise<void> => {
     db
       .select()
       .from(productsTable)
-      .where(and(eq(productsTable.published, true), gt(productsTable.stock, 0)))
+      .where(
+        and(
+          eq(productsTable.published, true),
+          eq(productsTable.featured, true),
+          gt(productsTable.stock, 0),
+        ),
+      )
       .orderBy(desc(productsTable.createdAt))
       .limit(8),
   ]);
@@ -268,6 +287,31 @@ router.get("/products/:slug", async (req, res): Promise<void> => {
     related: await productCards(relatedProducts),
   };
   res.json(GetProductResponse.parse(response));
+});
+
+router.get("/category-images/:categoryId", async (req, res): Promise<void> => {
+  if (!UUID_PATTERN.test(req.params.categoryId)) {
+    res.status(404).end();
+    return;
+  }
+  const [category] = await db
+    .select({
+      active: categoriesTable.active,
+      imageData: categoriesTable.imageData,
+      imageContentType: categoriesTable.imageContentType,
+    })
+    .from(categoriesTable)
+    .where(eq(categoriesTable.id, req.params.categoryId))
+    .limit(1);
+  if (!category?.active || !category.imageData || !category.imageContentType) {
+    res.status(404).end();
+    return;
+  }
+  res
+    .status(200)
+    .type(category.imageContentType)
+    .set("Cache-Control", "no-store")
+    .send(category.imageData);
 });
 
 router.get("/product-images/:imageId", async (req, res): Promise<void> => {

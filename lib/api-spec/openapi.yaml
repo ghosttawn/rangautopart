@@ -37,6 +37,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Storefront"
+  /storefront/hero-image:
+    get:
+      operationId: getHeroImage
+      tags: [storefront]
+      summary: Get the current homepage hero image
+      responses:
+        "200":
+          description: Persisted hero image
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        "404":
+          description: No uploaded hero image is available
   /categories:
     get:
       operationId: listCategories
@@ -523,6 +540,29 @@ paths:
       responses:
         "204":
           description: Category removed
+  /admin/categories/{categoryId}/image:
+    post:
+      operationId: uploadCategoryImage
+      tags: [admin]
+      summary: Upload a category image
+      parameters:
+        - in: path
+          name: categoryId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CategoryImageUpload"
+      responses:
+        "200":
+          description: Category image saved in PostgreSQL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
   /admin/orders:
     get:
       operationId: listAdminOrders
@@ -623,6 +663,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StoreSettings"
+  /admin/settings/hero-image:
+    post:
+      operationId: uploadHeroImage
+      tags: [admin]
+      summary: Replace the homepage hero image
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/HeroImageUpload"
+      responses:
+        "200":
+          description: Stored homepage hero image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HeroImage"
 components:
   schemas:
     HealthStatus:
@@ -638,13 +696,14 @@ components:
         code: { type: string }
     Category:
       type: object
-      required: [id, name, slug, productCount]
+      required: [id, name, slug, productCount, imageUrl]
       properties:
         id: { type: string }
         name: { type: string }
         slug: { type: string }
         description: { type: ["string", "null"] }
         productCount: { type: integer }
+        imageUrl: { type: ["string", "null"] }
         active: { type: boolean }
     CategoryInput:
       type: object
@@ -656,7 +715,7 @@ components:
         active: { type: boolean }
     ProductCard:
       type: object
-      required: [id, slug, name, sku, brand, priceMinor, salePriceMinor, stock, published, compatibilityStatus, imageUrl, category]
+      required: [id, slug, name, sku, brand, priceMinor, salePriceMinor, stock, published, featured, compatibilityStatus, imageUrl, category]
       properties:
         id: { type: string }
         slug: { type: string }
@@ -667,6 +726,7 @@ components:
         salePriceMinor: { type: ["integer", "null"] }
         stock: { type: integer }
         published: { type: boolean }
+        featured: { type: boolean }
         compatibilityStatus: { type: string, enum: [verified, unknown] }
         imageUrl: { type: ["string", "null"] }
         category: { type: ["string", "null"] }
@@ -703,6 +763,11 @@ components:
       properties:
         file: { type: string, format: binary }
         altText: { type: string, maxLength: 200 }
+    CategoryImageUpload:
+      type: object
+      required: [file]
+      properties:
+        file: { type: string, format: binary }
     Compatibility:
       type: object
       required: [make, model, yearFrom, yearTo, verified]
@@ -746,6 +811,7 @@ components:
         specifications: { type: object, additionalProperties: true }
         stock: { type: integer, minimum: 0 }
         published: { type: boolean }
+        featured: { type: boolean }
         compatibility:
           type: array
           items: { $ref: "#/components/schemas/CompatibilityInput" }
@@ -763,6 +829,7 @@ components:
         specifications: { type: object, additionalProperties: true }
         stock: { type: integer, minimum: 0 }
         published: { type: boolean }
+        featured: { type: boolean }
         compatibility:
           type: array
           items: { $ref: "#/components/schemas/CompatibilityInput" }
@@ -779,7 +846,7 @@ components:
           items: { $ref: "#/components/schemas/ProductCard" }
     StoreSettings:
       type: object
-      required: [currency, currencyConfigured, deliveryFeeMinor, deliveryRegions, cashOnDeliveryEnabled, onlinePaymentsEnabled, storeName]
+      required: [currency, currencyConfigured, deliveryFeeMinor, deliveryRegions, cashOnDeliveryEnabled, onlinePaymentsEnabled, storeName, heroTitle, heroHighlight, heroDescription, heroImageUrl, promotionalTitle, promotionalBody, promotionalActionLabel, promotionalUrl]
       properties:
         currency: { type: ["string", "null"] }
         currencyConfigured: { type: boolean }
@@ -792,6 +859,26 @@ components:
         storeName: { type: string }
         supportEmail: { type: ["string", "null"] }
         contactPhone: { type: ["string", "null"] }
+        heroTitle: { type: string }
+        heroHighlight: { type: string }
+        heroDescription: { type: string }
+        heroImageUrl: { type: string }
+        promotionalTitle: { type: string }
+        promotionalBody: { type: string }
+        promotionalActionLabel: { type: string }
+        promotionalUrl: { type: string }
+    HeroImage:
+      type: object
+      required: [url, contentType, size]
+      properties:
+        url: { type: string }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        size: { type: integer }
+    HeroImageUpload:
+      type: object
+      required: [file]
+      properties:
+        file: { type: string, format: binary }
     StoreSettingsInput:
       type: object
       properties:
@@ -805,6 +892,13 @@ components:
         storeName: { type: string, minLength: 1, maxLength: 140 }
         supportEmail: { type: ["string", "null"], format: email }
         contactPhone: { type: ["string", "null"], maxLength: 32 }
+        heroTitle: { type: string, minLength: 1, maxLength: 80 }
+        heroHighlight: { type: string, minLength: 1, maxLength: 100 }
+        heroDescription: { type: string, minLength: 1, maxLength: 500 }
+        promotionalTitle: { type: string, minLength: 1, maxLength: 120 }
+        promotionalBody: { type: string, minLength: 1, maxLength: 400 }
+        promotionalActionLabel: { type: string, minLength: 1, maxLength: 60 }
+        promotionalUrl: { type: string, pattern: "^/(?!/)[a-zA-Z0-9/_?=&%-]*$" }
     Cart:
       type: object
       required: [items, currency, subtotalMinor, deliveryFeeMinor, totalMinor]

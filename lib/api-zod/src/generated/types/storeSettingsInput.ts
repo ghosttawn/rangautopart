@@ -26,4 +26,36 @@ export interface StoreSettingsInput {
      * @nullable
      */
   contactPhone?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  heroTitle?: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  heroHighlight?: string;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  heroDescription?: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  promotionalTitle?: string;
+  /**
+     * @minLength 1
+     * @maxLength 400
+     */
+  promotionalBody?: string;
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  promotionalActionLabel?: string;
+  /** @pattern ^/(?!/)[a-zA-Z0-9/_?=&%-]*$ */
+  promotionalUrl?: string;
 }

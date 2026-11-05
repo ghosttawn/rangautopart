@@ -19,6 +19,7 @@ export interface ProductCard {
   salePriceMinor: number | null;
   stock: number;
   published: boolean;
+  featured: boolean;
   compatibilityStatus: ProductCardCompatibilityStatus;
   /** @nullable */
   imageUrl: string | null;

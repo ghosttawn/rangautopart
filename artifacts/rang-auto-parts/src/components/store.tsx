@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'wouter';
-import { ArrowRight, Check, ChevronRight, PackageCheck, Search, ShieldCheck, ShoppingBag, Wrench } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Menu, PackageCheck, Search, ShieldCheck, ShoppingBag, Wrench, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { getGetCartQueryKey, getListProductsQueryKey, useAddCartItem, useListProducts } from '@workspace/api-client-react';
@@ -11,8 +11,10 @@ export function Brand() {
 }
 
 export function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
   return <>
-    <div className="topline">THE RIGHT PART. THE FIRST TIME. &nbsp;·&nbsp; CASH ON DELIVERY AVAILABLE</div>
+    <div className="topline">RANG AUTO PARTS &nbsp;·&nbsp; CASH ON DELIVERY AVAILABLE</div>
     <header className="header"><div className="shell header-inner">
       <Brand />
       <nav className="nav-links" aria-label="Main navigation">
@@ -21,9 +23,16 @@ export function Header() {
       <span className="spacer" />
       <QuickSearch/>
       <Link href="/cart" className="header-action" data-testid="link-cart"><ShoppingBag size={18}/><span>Cart</span></Link>
-      <Link href="/account" className="header-action" data-testid="link-account"><span>Account</span></Link>
-      <Link href="/catalog" className="header-action mobile-menu" aria-label="Open parts catalog" data-testid="link-mobile-catalog"><Search size={19}/></Link>
-    </div></header>
+      <Link href="/account" className="header-action header-account" data-testid="link-account"><span>Account</span></Link>
+      <button type="button" className="header-action mobile-menu" aria-label={menuOpen?'Close navigation menu':'Open navigation menu'} aria-expanded={menuOpen} aria-controls="mobile-main-nav" onClick={()=>setMenuOpen(value=>!value)} data-testid="button-mobile-menu">{menuOpen?<X size={20}/>:<Menu size={20}/>}</button>
+    </div>
+    {menuOpen&&<nav id="mobile-main-nav" className="mobile-nav shell" aria-label="Mobile navigation">
+      <Link href="/catalog" onClick={closeMenu} data-testid="link-mobile-parts">Parts catalog</Link>
+      <Link href="/about" onClick={closeMenu} data-testid="link-mobile-about">Our standard</Link>
+      <Link href="/contact" onClick={closeMenu} data-testid="link-mobile-contact">Contact</Link>
+      <Link href="/account" onClick={closeMenu} data-testid="link-mobile-account">My account</Link>
+      <Link href="/orders" onClick={closeMenu} data-testid="link-mobile-orders">Order history</Link>
+    </nav>}</header>
   </>;
 }
 

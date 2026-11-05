@@ -34,6 +34,9 @@ import {
   UpdateProductBody,
   UpdateProductParams,
   UpdateProductResponse,
+  UploadCategoryImageParams,
+  UploadCategoryImageResponse,
+  UploadHeroImageResponse,
   UploadProductImageParams,
   UploadProductImageResponse,
 } from "@workspace/api-zod";
@@ -52,7 +55,15 @@ import {
   usersTable,
 } from "@workspace/db";
 import { HttpError, requireUser } from "../middlewares/auth";
-import { orderDto, productCards, publicImageDto, settingsDto } from "../lib/store";
+import {
+  categoryDto,
+  categoryDtos,
+  getSettings,
+  orderDto,
+  productCards,
+  publicImageDto,
+  settingsDto,
+} from "../lib/store";
 
 const router: IRouter = Router();
 const UUID_PATTERN =
@@ -341,6 +352,7 @@ router.post("/admin/products", async (req, res): Promise<void> => {
         specifications,
         stock: body.stock,
         published: body.published ?? false,
+        featured: body.featured ?? false,
       })
       .returning();
     if (!created) throw new Error("The product could not be created.");
@@ -544,24 +556,41 @@ router.get("/admin/categories", async (_req, res): Promise<void> => {
     .select()
     .from(categoriesTable)
     .orderBy(asc(categoriesTable.name));
-  const categoryData = await Promise.all(
-    categories.map(async (category) => {
-      const [count] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(productsTable)
-        .where(eq(productsTable.categoryId, category.id));
-      return {
-        id: category.id,
-        name: category.name,
-        slug: category.slug,
-        description: category.description,
-        active: category.active,
-        productCount: count?.count ?? 0,
-      };
-    }),
-  );
-  res.json(ListAdminCategoriesResponse.parse(categoryData));
+  res.json(ListAdminCategoriesResponse.parse(await categoryDtos(categories)));
 });
+
+router.post(
+  "/admin/categories/:categoryId/image",
+  imageUpload.single("file"),
+  async (req, res): Promise<void> => {
+    const params = UploadCategoryImageParams.safeParse(req.params);
+    const file = req.file;
+    if (!params.success || !UUID_PATTERN.test(params.data.categoryId)) {
+      res.status(400).json(errorResponse("Invalid category.", "INVALID_CATEGORY"));
+      return;
+    }
+    if (!file || !imageSignatureMatches(file.mimetype, file.buffer)) {
+      res.status(400).json(errorResponse("Choose a valid JPEG, PNG, or WebP image.", "INVALID_IMAGE"));
+      return;
+    }
+    const [category] = await db
+      .update(categoriesTable)
+      .set({
+        imageData: file.buffer,
+        imageContentType: file.mimetype,
+        imageSize: file.size,
+      })
+      .where(eq(categoriesTable.id, params.data.categoryId))
+      .returning();
+    if (!category) {
+      res.status(404).json(errorResponse("Category not found.", "CATEGORY_NOT_FOUND"));
+      return;
+    }
+    res.json(
+      UploadCategoryImageResponse.parse(await categoryDto(category)),
+    );
+  },
+);
 
 router.post("/admin/categories", async (req, res): Promise<void> => {
   const parsed = CreateCategoryBody.safeParse(req.body);
@@ -590,6 +619,7 @@ router.post("/admin/categories", async (req, res): Promise<void> => {
       description: category!.description,
       active: category!.active,
       productCount: count?.count ?? 0,
+      imageUrl: null,
     }),
   );
 });
@@ -632,6 +662,9 @@ router.patch("/admin/categories/:categoryId", async (req, res): Promise<void> =>
       description: category.description,
       active: category.active,
       productCount: count?.count ?? 0,
+      imageUrl: category.imageData
+        ? `/api/category-images/${category.id}`
+        : null,
     }),
   );
 });
@@ -834,22 +867,45 @@ router.get("/admin/customers", async (req, res): Promise<void> => {
 });
 
 router.get("/admin/settings", adminOnly, async (_req, res): Promise<void> => {
-  const [settings] = await db.select().from(storeSettingsTable).limit(1);
-  const dto = settings
-    ? settingsDto(settings)
-    : {
-        storeName: "RANG Auto Parts",
-        currency: "XAF",
-        currencyConfigured: true,
-        deliveryFeeMinor: 0,
-        deliveryRegions: [],
-        cashOnDeliveryEnabled: true,
-        onlinePaymentsEnabled: false,
-        supportEmail: null,
-        contactPhone: null,
-      };
-  res.json(GetAdminSettingsResponse.parse(dto));
+  res.json(GetAdminSettingsResponse.parse(settingsDto(await getSettings())));
 });
+
+router.post(
+  "/admin/settings/hero-image",
+  adminOnly,
+  imageUpload.single("file"),
+  async (req, res): Promise<void> => {
+    const file = req.file;
+    if (!file || !imageSignatureMatches(file.mimetype, file.buffer)) {
+      res.status(400).json(errorResponse("Choose a valid JPEG, PNG, or WebP image.", "INVALID_IMAGE"));
+      return;
+    }
+    const values = {
+      heroImageData: file.buffer,
+      heroImageContentType: file.mimetype,
+      heroImageSize: file.size,
+      updatedAt: new Date(),
+    };
+    const [existing] = await db.select().from(storeSettingsTable).limit(1);
+    const [settings] = existing
+      ? await db
+          .update(storeSettingsTable)
+          .set(values)
+          .where(eq(storeSettingsTable.id, existing.id))
+          .returning()
+      : await db
+          .insert(storeSettingsTable)
+          .values({ id: 1, ...values })
+          .returning();
+    res.json(
+      UploadHeroImageResponse.parse({
+        url: "/api/storefront/hero-image",
+        contentType: settings!.heroImageContentType,
+        size: settings!.heroImageSize,
+      }),
+    );
+  },
+);
 
 router.patch("/admin/settings", adminOnly, async (req, res): Promise<void> => {
   const parsed = UpdateAdminSettingsBody.safeParse(req.body);
@@ -886,6 +942,27 @@ router.patch("/admin/settings", adminOnly, async (req, res): Promise<void> => {
       : {}),
     ...(parsed.data.contactPhone !== undefined
       ? { contactPhone: parsed.data.contactPhone?.trim() || null }
+      : {}),
+    ...(parsed.data.heroTitle !== undefined
+      ? { heroTitle: parsed.data.heroTitle.trim() }
+      : {}),
+    ...(parsed.data.heroHighlight !== undefined
+      ? { heroHighlight: parsed.data.heroHighlight.trim() }
+      : {}),
+    ...(parsed.data.heroDescription !== undefined
+      ? { heroDescription: parsed.data.heroDescription.trim() }
+      : {}),
+    ...(parsed.data.promotionalTitle !== undefined
+      ? { promotionalTitle: parsed.data.promotionalTitle.trim() }
+      : {}),
+    ...(parsed.data.promotionalBody !== undefined
+      ? { promotionalBody: parsed.data.promotionalBody.trim() }
+      : {}),
+    ...(parsed.data.promotionalActionLabel !== undefined
+      ? { promotionalActionLabel: parsed.data.promotionalActionLabel.trim() }
+      : {}),
+    ...(parsed.data.promotionalUrl !== undefined
+      ? { promotionalUrl: parsed.data.promotionalUrl.trim() }
       : {}),
     updatedAt: new Date(),
   };

@@ -26,6 +26,9 @@ export const categoriesTable = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     description: text("description"),
+    imageData: bytea("image_data"),
+    imageContentType: text("image_content_type"),
+    imageSize: integer("image_size"),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -57,6 +60,7 @@ export const productsTable = pgTable(
       .default({}),
     stock: integer("stock").notNull().default(0),
     published: boolean("published").notNull().default(false),
+    featured: boolean("featured").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

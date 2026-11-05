@@ -1,0 +1,1 @@
+- [Development database target verification](development-database-target.md) — confirm the actual database target with Replit's database tooling; the shell environment label may not match it.

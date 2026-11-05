@@ -37,6 +37,18 @@ const DEFAULT_SETTINGS: StoreSettings = {
   onlinePaymentsEnabled: false,
   supportEmail: null,
   contactPhone: null,
+  heroTitle: "Keep your",
+  heroHighlight: "machine moving.",
+  heroDescription:
+    "Reliable parts for ATVs, cars, motorcycles and utility vehicles. Find the right piece, know what you are getting, and get on with the repair.",
+  heroImageData: null,
+  heroImageContentType: null,
+  heroImageSize: null,
+  promotionalTitle: "Not sure it fits? Ask first.",
+  promotionalBody:
+    "Send us the make, model and year. We will help you narrow it down before you order.",
+  promotionalActionLabel: "Talk to our parts desk",
+  promotionalUrl: "/contact",
   updatedAt: new Date(0),
 };
 
@@ -56,6 +68,16 @@ export function settingsDto(settings: StoreSettings) {
     onlinePaymentsEnabled: false,
     supportEmail: settings.supportEmail,
     contactPhone: settings.contactPhone,
+    heroTitle: settings.heroTitle,
+    heroHighlight: settings.heroHighlight,
+    heroDescription: settings.heroDescription,
+    heroImageUrl: settings.heroImageData
+      ? "/api/storefront/hero-image"
+      : "/rang-hero.jpg",
+    promotionalTitle: settings.promotionalTitle,
+    promotionalBody: settings.promotionalBody,
+    promotionalActionLabel: settings.promotionalActionLabel,
+    promotionalUrl: settings.promotionalUrl,
   };
 }
 
@@ -78,6 +100,7 @@ export async function categoryDto(category: Category) {
     slug: category.slug,
     description: category.description,
     productCount: count?.count ?? 0,
+    imageUrl: category.imageData ? `/api/category-images/${category.id}` : null,
     active: category.active,
   };
 }
@@ -100,6 +123,7 @@ export async function categoryDtos(categories: Category[]) {
     slug: category.slug,
     description: category.description,
     productCount: countById.get(category.id) ?? 0,
+    imageUrl: category.imageData ? `/api/category-images/${category.id}` : null,
     active: category.active,
   }));
 }
@@ -152,6 +176,7 @@ export async function productCards(products: Product[]) {
     salePriceMinor: product.salePriceMinor,
     stock: product.stock,
     published: product.published,
+    featured: product.featured,
     compatibilityStatus: verifiedByProduct.has(product.id) ? "verified" : "unknown",
     imageUrl: imageByProduct.has(product.id)
       ? `/api/product-images/${imageByProduct.get(product.id)}`

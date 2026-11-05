@@ -21,6 +21,8 @@ export interface Category {
   /** @nullable */
   description?: string | null;
   productCount: number;
+  /** @nullable */
+  imageUrl: string | null;
   active?: boolean;
 }
 
@@ -60,6 +62,7 @@ export interface ProductCard {
   salePriceMinor: number | null;
   stock: number;
   published: boolean;
+  featured: boolean;
   compatibilityStatus: ProductCardCompatibilityStatus;
   /** @nullable */
   imageUrl: string | null;
@@ -108,6 +111,10 @@ export interface ProductImageUpload {
   file: Blob | File;
   /** @maxLength 200 */
   altText?: string;
+}
+
+export interface CategoryImageUpload {
+  file: Blob | File;
 }
 
 export interface CompatibilityInput {
@@ -174,6 +181,7 @@ export interface ProductInput {
   /** @minimum 0 */
   stock: number;
   published?: boolean;
+  featured?: boolean;
   compatibility?: CompatibilityInput[];
 }
 
@@ -210,6 +218,7 @@ export interface ProductUpdate {
   /** @minimum 0 */
   stock?: number;
   published?: boolean;
+  featured?: boolean;
   compatibility?: CompatibilityInput[];
 }
 
@@ -226,12 +235,39 @@ export interface StoreSettings {
   supportEmail?: string | null;
   /** @nullable */
   contactPhone?: string | null;
+  heroTitle: string;
+  heroHighlight: string;
+  heroDescription: string;
+  heroImageUrl: string;
+  promotionalTitle: string;
+  promotionalBody: string;
+  promotionalActionLabel: string;
+  promotionalUrl: string;
 }
 
 export interface Storefront {
   settings: StoreSettings;
   categories: Category[];
   featured: ProductCard[];
+}
+
+export type HeroImageContentType = typeof HeroImageContentType[keyof typeof HeroImageContentType];
+
+
+export const HeroImageContentType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+} as const;
+
+export interface HeroImage {
+  url: string;
+  contentType: HeroImageContentType;
+  size: number;
+}
+
+export interface HeroImageUpload {
+  file: Blob | File;
 }
 
 export interface StoreSettingsInput {
@@ -254,6 +290,38 @@ export interface StoreSettingsInput {
      * @nullable
      */
   contactPhone?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  heroTitle?: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  heroHighlight?: string;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  heroDescription?: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  promotionalTitle?: string;
+  /**
+     * @minLength 1
+     * @maxLength 400
+     */
+  promotionalBody?: string;
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  promotionalActionLabel?: string;
+  /** @pattern ^/(?!/)[a-zA-Z0-9/_?=&%-]*$ */
+  promotionalUrl?: string;
 }
 
 export interface CartItem {

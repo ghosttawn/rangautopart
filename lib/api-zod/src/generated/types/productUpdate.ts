@@ -39,5 +39,6 @@ export interface ProductUpdate {
   /** @minimum 0 */
   stock?: number;
   published?: boolean;
+  featured?: boolean;
   compatibility?: CompatibilityInput[];
 }

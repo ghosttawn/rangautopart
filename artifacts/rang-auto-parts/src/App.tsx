@@ -15,7 +15,7 @@ import {
   Router as WouterRouter,
 } from 'wouter';
 import { AboutPage, AccountPage, CartPage, CatalogPage, CheckoutPage, ContactPage, HomePage, OrderPage, OrdersPage, PrivacyPage, ProductPage, TermsPage } from '@/pages/StorePages';
-import { AdminCategoriesPage, AdminCustomersPage, AdminOrdersPage, AdminOverviewPage, AdminProductsPage, AdminSettingsPage } from '@/pages/AdminPages';
+import { AdminCategoriesPage, AdminCustomersPage, AdminInventoryPage, AdminOrdersPage, AdminOverviewPage, AdminProductsPage, AdminSettingsPage } from '@/pages/AdminPages';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -144,6 +144,7 @@ function Router() {
         <Route path="/terms" component={TermsPage} />
         <Route path="/admin" component={AdminOverviewPage} />
         <Route path="/admin/products" component={AdminProductsPage} />
+        <Route path="/admin/inventory" component={AdminInventoryPage} />
         <Route path="/admin/categories" component={AdminCategoriesPage} />
         <Route path="/admin/orders" component={AdminOrdersPage} />
         <Route path="/admin/customers" component={AdminCustomersPage} />

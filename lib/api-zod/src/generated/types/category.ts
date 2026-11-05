@@ -13,5 +13,7 @@ export interface Category {
   /** @nullable */
   description?: string | null;
   productCount: number;
+  /** @nullable */
+  imageUrl: string | null;
   active?: boolean;
 }

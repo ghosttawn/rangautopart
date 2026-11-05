@@ -26,15 +26,46 @@ target environment before staff sign in. Admin and staff permissions are
 checked by the API; hiding dashboard links in the browser is not the security
 boundary. Keep this allowlist limited to business-controlled accounts.
 
-## Initial catalog setup
+## Development sample data
 
-The development database starts with the five broad categories requested for
-ATVs, cars, motorcycles, vehicle accessories, and other automotive products. It
-contains no sample products, customers, or orders. Development rows are not
-copied into production when the schema is published. After provisioning the
-production administrator, create or adjust categories and load verified SKUs,
-prices, stock, product images, and vehicle fitment from the business catalog.
-Do not publish invented inventory or compatibility claims.
+The development database can be populated with repeatable sample categories,
+products, images, customers, COD orders, payments, and deliveries:
+
+```sh
+pnpm --filter @workspace/db run push
+RANG_DEMO_SEED_CONFIRM=development pnpm --filter @workspace/scripts run seed-demo
+```
+
+The seed is additive and idempotent: it preserves existing records and fills
+only missing sample records or sample images. It refuses to run when
+`NODE_ENV=production` and always requires the explicit development confirmation
+shown above. Sample
+customers use reserved `.test` email addresses, and sample vehicle fitment is
+marked unverified. Do not publish invented inventory or compatibility claims.
+Development rows are not copied to production by schema publishing. Replace
+demonstration products, prices, stock, and fitment with business-verified data
+before launch.
+
+## Development administrator access
+
+The app uses its existing Clerk login; it does not ship a shared development
+password or bypass authentication.
+
+1. Add the business owner's verified email to `RANG_ADMIN_EMAILS` in the
+   Development environment only.
+2. Create or sign in to that account at `/sign-in` using the app's normal Clerk
+   flow. The first authenticated request creates the database user and grants
+   the allowlisted email the `admin` role.
+3. Open `/admin` to manage products, inventory, categories, orders, customers,
+   homepage content, and store settings.
+4. The account owner chooses and controls their own password in Clerk. Use the
+   sign-in screen's password-recovery flow if it needs to be reset.
+5. To grant another administrator, add their business-controlled email to the
+   Development `RANG_ADMIN_EMAILS` allowlist and have them sign in. Apply a
+   separate, deliberate allowlist change to Production only when authorized.
+
+Never put a shared password in the code, sample seed, or frontend. Development
+and production Clerk accounts are separate.
 
 ## Run locally
 

@@ -19,4 +19,12 @@ export interface StoreSettings {
   supportEmail?: string | null;
   /** @nullable */
   contactPhone?: string | null;
+  heroTitle: string;
+  heroHighlight: string;
+  heroDescription: string;
+  heroImageUrl: string;
+  promotionalTitle: string;
+  promotionalBody: string;
+  promotionalActionLabel: string;
+  promotionalUrl: string;
 }
