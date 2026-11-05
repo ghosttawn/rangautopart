@@ -21,5 +21,16 @@ export interface Order {
   totalMinor: number;
   currency: string;
   createdAt: Date;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryRegion: string;
+  /** @nullable */
+  deliveryNotes?: string | null;
+  deliveryFeeMinor: number;
+  /** @nullable */
+  staffNote?: string | null;
   items: OrderItem[];
 }

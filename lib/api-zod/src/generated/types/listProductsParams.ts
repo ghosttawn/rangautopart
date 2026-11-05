@@ -31,4 +31,11 @@ minPrice?: number;
  * @minimum 0
  */
 maxPrice?: number;
+compatibilityMake?: string;
+compatibilityModel?: string;
+/**
+ * @minimum 1886
+ * @maximum 2100
+ */
+compatibilityYear?: number;
 };

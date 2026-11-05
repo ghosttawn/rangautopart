@@ -82,6 +82,9 @@ export const listProductsQueryMinPriceMin = 0;
 
 export const listProductsQueryMaxPriceMin = 0;
 
+export const listProductsQueryCompatibilityYearMin = 1886;
+export const listProductsQueryCompatibilityYearMax = 2100;
+
 
 
 export const ListProductsQueryParams = zod.object({
@@ -93,7 +96,10 @@ export const ListProductsQueryParams = zod.object({
   "page": zod.coerce.number().int().min(1).default(listProductsQueryPageDefault),
   "limit": zod.coerce.number().int().min(1).max(listProductsQueryLimitMax).default(listProductsQueryLimitDefault),
   "minPrice": zod.coerce.number().int().min(listProductsQueryMinPriceMin).optional(),
-  "maxPrice": zod.coerce.number().int().min(listProductsQueryMaxPriceMin).optional()
+  "maxPrice": zod.coerce.number().int().min(listProductsQueryMaxPriceMin).optional(),
+  "compatibilityMake": zod.coerce.string().optional(),
+  "compatibilityModel": zod.coerce.string().optional(),
+  "compatibilityYear": zod.coerce.number().int().min(listProductsQueryCompatibilityYearMin).max(listProductsQueryCompatibilityYearMax).optional()
 })
 
 export const ListProductsResponse = zod.object({
@@ -221,6 +227,7 @@ export const addCartItemBodyQuantityMax = 50;
 
 
 export const AddCartItemBody = zod.object({
+  "productId": zod.string().uuid(),
   "quantity": zod.number().int().min(1).max(addCartItemBodyQuantityMax)
 })
 
@@ -424,6 +431,15 @@ export const ListCustomerOrdersResponseItem = zod.object({
   "totalMinor": zod.number().int(),
   "currency": zod.string(),
   "createdAt": zod.coerce.date(),
+  "customerName": zod.string(),
+  "customerEmail": zod.string().email(),
+  "customerPhone": zod.string(),
+  "deliveryAddress": zod.string(),
+  "deliveryCity": zod.string(),
+  "deliveryRegion": zod.string(),
+  "deliveryNotes": zod.string().nullish(),
+  "deliveryFeeMinor": zod.number().int(),
+  "staffNote": zod.string().nullish(),
   "items": zod.array(zod.object({
   "name": zod.string(),
   "sku": zod.string(),
@@ -452,6 +468,15 @@ export const GetCustomerOrderResponse = zod.object({
   "totalMinor": zod.number().int(),
   "currency": zod.string(),
   "createdAt": zod.coerce.date(),
+  "customerName": zod.string(),
+  "customerEmail": zod.string().email(),
+  "customerPhone": zod.string(),
+  "deliveryAddress": zod.string(),
+  "deliveryCity": zod.string(),
+  "deliveryRegion": zod.string(),
+  "deliveryNotes": zod.string().nullish(),
+  "deliveryFeeMinor": zod.number().int(),
+  "staffNote": zod.string().nullish(),
   "items": zod.array(zod.object({
   "name": zod.string(),
   "sku": zod.string(),
@@ -527,7 +552,17 @@ export const createProductBodySalePriceMinorMin = 0;
 
 export const createProductBodyStockMin = 0;
 
+export const createProductBodyCompatibilityItemMakeMax = 80;
 
+export const createProductBodyCompatibilityItemModelMax = 100;
+
+export const createProductBodyCompatibilityItemYearFromMin = 1886;
+export const createProductBodyCompatibilityItemYearFromMax = 2100;
+
+export const createProductBodyCompatibilityItemYearToMin = 1886;
+export const createProductBodyCompatibilityItemYearToMax = 2100;
+
+export const createProductBodyCompatibilityItemVerifiedDefault = false;
 
 export const CreateProductBody = zod.object({
   "name": zod.string().min(1).max(createProductBodyNameMax),
@@ -540,7 +575,14 @@ export const CreateProductBody = zod.object({
   "description": zod.string(),
   "specifications": zod.record(zod.string(), zod.unknown()).optional(),
   "stock": zod.number().int().min(createProductBodyStockMin),
-  "published": zod.boolean().optional()
+  "published": zod.boolean().optional(),
+  "compatibility": zod.array(zod.object({
+  "make": zod.string().min(1).max(createProductBodyCompatibilityItemMakeMax),
+  "model": zod.string().min(1).max(createProductBodyCompatibilityItemModelMax),
+  "yearFrom": zod.number().int().min(createProductBodyCompatibilityItemYearFromMin).max(createProductBodyCompatibilityItemYearFromMax),
+  "yearTo": zod.number().int().min(createProductBodyCompatibilityItemYearToMin).max(createProductBodyCompatibilityItemYearToMax),
+  "verified": zod.boolean().default(createProductBodyCompatibilityItemVerifiedDefault)
+})).optional()
 })
 
 export const CreateProductResponse = zod.object({
@@ -610,7 +652,17 @@ export const updateProductBodySalePriceMinorMin = 0;
 
 export const updateProductBodyStockMin = 0;
 
+export const updateProductBodyCompatibilityItemMakeMax = 80;
 
+export const updateProductBodyCompatibilityItemModelMax = 100;
+
+export const updateProductBodyCompatibilityItemYearFromMin = 1886;
+export const updateProductBodyCompatibilityItemYearFromMax = 2100;
+
+export const updateProductBodyCompatibilityItemYearToMin = 1886;
+export const updateProductBodyCompatibilityItemYearToMax = 2100;
+
+export const updateProductBodyCompatibilityItemVerifiedDefault = false;
 
 export const UpdateProductBody = zod.object({
   "name": zod.string().min(1).max(updateProductBodyNameMax).optional(),
@@ -623,7 +675,14 @@ export const UpdateProductBody = zod.object({
   "description": zod.string().optional(),
   "specifications": zod.record(zod.string(), zod.unknown()).optional(),
   "stock": zod.number().int().min(updateProductBodyStockMin).optional(),
-  "published": zod.boolean().optional()
+  "published": zod.boolean().optional(),
+  "compatibility": zod.array(zod.object({
+  "make": zod.string().min(1).max(updateProductBodyCompatibilityItemMakeMax),
+  "model": zod.string().min(1).max(updateProductBodyCompatibilityItemModelMax),
+  "yearFrom": zod.number().int().min(updateProductBodyCompatibilityItemYearFromMin).max(updateProductBodyCompatibilityItemYearFromMax),
+  "yearTo": zod.number().int().min(updateProductBodyCompatibilityItemYearToMin).max(updateProductBodyCompatibilityItemYearToMax),
+  "verified": zod.boolean().default(updateProductBodyCompatibilityItemVerifiedDefault)
+})).optional()
 })
 
 export const UpdateProductResponse = zod.object({
@@ -815,6 +874,15 @@ export const ListAdminOrdersResponseItem = zod.object({
   "totalMinor": zod.number().int(),
   "currency": zod.string(),
   "createdAt": zod.coerce.date(),
+  "customerName": zod.string(),
+  "customerEmail": zod.string().email(),
+  "customerPhone": zod.string(),
+  "deliveryAddress": zod.string(),
+  "deliveryCity": zod.string(),
+  "deliveryRegion": zod.string(),
+  "deliveryNotes": zod.string().nullish(),
+  "deliveryFeeMinor": zod.number().int(),
+  "staffNote": zod.string().nullish(),
   "items": zod.array(zod.object({
   "name": zod.string(),
   "sku": zod.string(),
@@ -854,6 +922,15 @@ export const UpdateOrderResponse = zod.object({
   "totalMinor": zod.number().int(),
   "currency": zod.string(),
   "createdAt": zod.coerce.date(),
+  "customerName": zod.string(),
+  "customerEmail": zod.string().email(),
+  "customerPhone": zod.string(),
+  "deliveryAddress": zod.string(),
+  "deliveryCity": zod.string(),
+  "deliveryRegion": zod.string(),
+  "deliveryNotes": zod.string().nullish(),
+  "deliveryFeeMinor": zod.number().int(),
+  "staffNote": zod.string().nullish(),
   "items": zod.array(zod.object({
   "name": zod.string(),
   "sku": zod.string(),

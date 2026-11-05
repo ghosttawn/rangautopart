@@ -5,6 +5,7 @@
  * RANG automotive storefront and operations API
  * OpenAPI spec version: 0.2.0
  */
+import type { CompatibilityInput } from './compatibilityInput';
 import type { ProductUpdateSpecifications } from './productUpdateSpecifications';
 
 export interface ProductUpdate {
@@ -38,4 +39,5 @@ export interface ProductUpdate {
   /** @minimum 0 */
   stock?: number;
   published?: boolean;
+  compatibility?: CompatibilityInput[];
 }

@@ -110,6 +110,30 @@ export interface ProductImageUpload {
   altText?: string;
 }
 
+export interface CompatibilityInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  make: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  model: string;
+  /**
+     * @minimum 1886
+     * @maximum 2100
+     */
+  yearFrom: number;
+  /**
+     * @minimum 1886
+     * @maximum 2100
+     */
+  yearTo: number;
+  verified?: boolean;
+}
+
 export interface ProductPage {
   items: ProductCard[];
   total: number;
@@ -150,6 +174,7 @@ export interface ProductInput {
   /** @minimum 0 */
   stock: number;
   published?: boolean;
+  compatibility?: CompatibilityInput[];
 }
 
 export type ProductUpdateSpecifications = { [key: string]: unknown };
@@ -185,6 +210,7 @@ export interface ProductUpdate {
   /** @minimum 0 */
   stock?: number;
   published?: boolean;
+  compatibility?: CompatibilityInput[];
 }
 
 export interface StoreSettings {
@@ -248,6 +274,15 @@ export interface Cart {
 }
 
 export interface CartItemInput {
+  /**
+     * @minimum 1
+     * @maximum 50
+     */
+  quantity: number;
+}
+
+export interface CartItemAddInput {
+  productId: string;
   /**
      * @minimum 1
      * @maximum 50
@@ -351,6 +386,17 @@ export interface Order {
   totalMinor: number;
   currency: string;
   createdAt: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryRegion: string;
+  /** @nullable */
+  deliveryNotes?: string | null;
+  deliveryFeeMinor: number;
+  /** @nullable */
+  staffNote?: string | null;
   items: OrderItem[];
 }
 
@@ -456,6 +502,13 @@ minPrice?: number;
  * @minimum 0
  */
 maxPrice?: number;
+compatibilityMake?: string;
+compatibilityModel?: string;
+/**
+ * @minimum 1886
+ * @maximum 2100
+ */
+compatibilityYear?: number;
 };
 
 export type ListProductsAvailability = typeof ListProductsAvailability[keyof typeof ListProductsAvailability];

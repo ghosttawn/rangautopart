@@ -84,6 +84,15 @@ paths:
         - in: query
           name: maxPrice
           schema: { type: integer, minimum: 0 }
+        - in: query
+          name: compatibilityMake
+          schema: { type: string }
+        - in: query
+          name: compatibilityModel
+          schema: { type: string }
+        - in: query
+          name: compatibilityYear
+          schema: { type: integer, minimum: 1886, maximum: 2100 }
       responses:
         "200":
           description: Paginated product results
@@ -155,7 +164,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CartItemInput"
+                $ref: "#/components/schemas/CartItemAddInput"
       responses:
         "200":
           description: Updated cart
@@ -668,6 +677,15 @@ components:
         yearFrom: { type: integer }
         yearTo: { type: integer }
         verified: { type: boolean }
+    CompatibilityInput:
+      type: object
+      required: [make, model, yearFrom, yearTo]
+      properties:
+        make: { type: string, minLength: 1, maxLength: 80 }
+        model: { type: string, minLength: 1, maxLength: 100 }
+        yearFrom: { type: integer, minimum: 1886, maximum: 2100 }
+        yearTo: { type: integer, minimum: 1886, maximum: 2100 }
+        verified: { type: boolean, default: false }
     ProductPage:
       type: object
       required: [items, total, page, limit]
@@ -693,6 +711,9 @@ components:
         specifications: { type: object, additionalProperties: true }
         stock: { type: integer, minimum: 0 }
         published: { type: boolean }
+        compatibility:
+          type: array
+          items: { $ref: "#/components/schemas/CompatibilityInput" }
     ProductUpdate:
       type: object
       properties:
@@ -707,6 +728,9 @@ components:
         specifications: { type: object, additionalProperties: true }
         stock: { type: integer, minimum: 0 }
         published: { type: boolean }
+        compatibility:
+          type: array
+          items: { $ref: "#/components/schemas/CompatibilityInput" }
     Storefront:
       type: object
       required: [settings, categories, featured]
@@ -771,6 +795,12 @@ components:
       required: [quantity]
       properties:
         quantity: { type: integer, minimum: 1, maximum: 50 }
+    CartItemAddInput:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1, maximum: 50 }
     CheckoutInput:
       type: object
       required: [idempotencyKey, name, email, phone, address, city, region]
@@ -795,7 +825,7 @@ components:
         currency: { type: string }
     Order:
       type: object
-      required: [id, orderNumber, orderStatus, paymentStatus, paymentMethod, fulfillmentStatus, totalMinor, currency, createdAt, items]
+      required: [id, orderNumber, orderStatus, paymentStatus, paymentMethod, fulfillmentStatus, totalMinor, currency, createdAt, items, customerName, customerEmail, customerPhone, deliveryAddress, deliveryCity, deliveryRegion, deliveryFeeMinor]
       properties:
         id: { type: string }
         orderNumber: { type: string }
@@ -806,6 +836,15 @@ components:
         totalMinor: { type: integer }
         currency: { type: string }
         createdAt: { type: string, format: date-time }
+        customerName: { type: string }
+        customerEmail: { type: string, format: email }
+        customerPhone: { type: string }
+        deliveryAddress: { type: string }
+        deliveryCity: { type: string }
+        deliveryRegion: { type: string }
+        deliveryNotes: { type: ["string", "null"] }
+        deliveryFeeMinor: { type: integer }
+        staffNote: { type: ["string", "null"] }
         items:
           type: array
           items: { $ref: "#/components/schemas/OrderItem" }
