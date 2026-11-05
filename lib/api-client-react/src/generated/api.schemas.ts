@@ -14,6 +14,71 @@ export interface ErrorResponse {
   code: string;
 }
 
+export interface SupportMessageInput {
+  /**
+     * @minLength 2
+     * @maxLength 160
+     */
+  name: string;
+  /** @maxLength 254 */
+  email: string;
+  /** @maxLength 32 */
+  phone?: string;
+  /**
+     * @minLength 3
+     * @maxLength 120
+     */
+  subject: string;
+  /**
+     * @minLength 10
+     * @maxLength 3000
+     */
+  message: string;
+}
+
+export interface SupportMessageReceipt {
+  id: string;
+  createdAt: string;
+  message: string;
+}
+
+export type AdminSupportMessageStatus = typeof AdminSupportMessageStatus[keyof typeof AdminSupportMessageStatus];
+
+
+export const AdminSupportMessageStatus = {
+  open: 'open',
+  resolved: 'resolved',
+} as const;
+
+export interface AdminSupportMessage {
+  id: string;
+  name: string;
+  email: string;
+  /** @nullable */
+  phone: string | null;
+  subject: string;
+  message: string;
+  status: AdminSupportMessageStatus;
+  createdAt: string;
+}
+
+export interface ListAdminSupportMessages {
+  items: AdminSupportMessage[];
+  total: number;
+}
+
+export type SupportMessageUpdateStatus = typeof SupportMessageUpdateStatus[keyof typeof SupportMessageUpdateStatus];
+
+
+export const SupportMessageUpdateStatus = {
+  open: 'open',
+  resolved: 'resolved',
+} as const;
+
+export interface SupportMessageUpdate {
+  status: SupportMessageUpdateStatus;
+}
+
 export type AuthUserRole = typeof AuthUserRole[keyof typeof AuthUserRole];
 
 
@@ -470,6 +535,11 @@ export interface CheckoutInput {
      * @maxLength 100
      */
   region: string;
+  /**
+     * @minLength 2
+     * @maxLength 100
+     */
+  country: string;
   /** @maxLength 500 */
   deliveryNotes?: string;
 }
@@ -545,6 +615,8 @@ export interface Order {
   deliveryCity: string;
   deliveryRegion: string;
   /** @nullable */
+  deliveryCountry: string | null;
+  /** @nullable */
   deliveryNotes?: string | null;
   deliveryFeeMinor: number;
   /** @nullable */
@@ -619,6 +691,13 @@ export interface AccountUpdate {
      * @nullable
      */
   phone?: string | null;
+  /** @maxLength 254 */
+  email?: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  currentPassword?: string;
 }
 
 export interface AdminOverview {
@@ -706,6 +785,27 @@ page?: number;
  */
 limit?: number;
 };
+
+export type ListAdminSupportMessagesParams = {
+status?: ListAdminSupportMessagesStatus;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
+};
+
+export type ListAdminSupportMessagesStatus = typeof ListAdminSupportMessagesStatus[keyof typeof ListAdminSupportMessagesStatus];
+
+
+export const ListAdminSupportMessagesStatus = {
+  open: 'open',
+  resolved: 'resolved',
+} as const;
 
 export type ListAdminCustomersParams = {
 q?: string;

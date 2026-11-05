@@ -1,8 +1,11 @@
 import { and, asc, desc, eq, gt, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
+import rateLimit from "express-rate-limit";
 import {
   AddCartItemBody,
   AddCartItemResponse,
+  CreateSupportMessageBody,
+  CreateSupportMessageResponse,
   GetCartResponse,
   GetProductParams,
   GetProductResponse,
@@ -23,6 +26,7 @@ import {
   db,
   productImagesTable,
   productsTable,
+  supportMessagesTable,
 } from "@workspace/db";
 import { hasStaffAccess, resolveCurrentUser } from "../middlewares/auth";
 import { HttpError } from "../middlewares/auth";
@@ -44,6 +48,18 @@ const UUID_PATTERN =
 function errorResponse(message: string, code: string) {
   return { error: message, code };
 }
+
+const supportMessageLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res): void => {
+    res
+      .status(429)
+      .json(errorResponse("Too many messages were submitted. Try again later.", "RATE_LIMITED"));
+  },
+});
 
 router.get("/storefront/hero-image", async (_req, res): Promise<void> => {
   const settings = await getSettings();
@@ -83,11 +99,46 @@ router.get("/storefront", async (_req, res): Promise<void> => {
     categoryDtos(categories),
     productCards(featuredProducts),
   ]);
-  res.json(
+  res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60").json(
     GetStorefrontResponse.parse({
       settings: settingsDto(settings),
       categories: categoryData,
       featured,
+    }),
+  );
+});
+
+router.post("/support/messages", supportMessageLimiter, async (req, res): Promise<void> => {
+  const parsed = CreateSupportMessageBody.safeParse(req.body);
+  if (!parsed.success) {
+    res
+      .status(400)
+      .json(errorResponse("Check the name, email, subject, and message.", "INVALID_SUPPORT_MESSAGE"));
+    return;
+  }
+
+  const name = parsed.data.name.trim();
+  const email = parsed.data.email.trim().toLowerCase();
+  const phone = parsed.data.phone?.trim() || null;
+  const subject = parsed.data.subject.trim();
+  const message = parsed.data.message.trim();
+  if (name.length < 2 || subject.length < 3 || message.length < 10) {
+    res
+      .status(400)
+      .json(errorResponse("Check the name, email, subject, and message.", "INVALID_SUPPORT_MESSAGE"));
+    return;
+  }
+
+  const [created] = await db
+    .insert(supportMessagesTable)
+    .values({ name, email, phone, subject, message })
+    .returning({ id: supportMessagesTable.id, createdAt: supportMessagesTable.createdAt });
+
+  res.status(201).json(
+    CreateSupportMessageResponse.parse({
+      id: created.id,
+      createdAt: created.createdAt.toISOString(),
+      message: "Your message has been saved to the RANG support inbox.",
     }),
   );
 });
@@ -98,7 +149,9 @@ router.get("/categories", async (_req, res): Promise<void> => {
     .from(categoriesTable)
     .where(eq(categoriesTable.active, true))
     .orderBy(asc(categoriesTable.name));
-  res.json(ListCategoriesResponse.parse(await categoryDtos(categories)));
+  res
+    .set("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
+    .json(ListCategoriesResponse.parse(await categoryDtos(categories)));
 });
 
 router.get("/products", async (req, res): Promise<void> => {
@@ -213,7 +266,9 @@ router.get("/products", async (req, res): Promise<void> => {
   ]);
   const products = resultRows.map((row) => row.product);
   const items = await productCards(products);
-  res.json(
+  res
+    .set("Cache-Control", "public, max-age=10, stale-while-revalidate=20")
+    .json(
     ListProductsResponse.parse({
       items,
       total: countResult[0]?.total ?? 0,
@@ -286,7 +341,9 @@ router.get("/products/:slug", async (req, res): Promise<void> => {
     createdAt: product.product.createdAt.toISOString(),
     related: await productCards(relatedProducts),
   };
-  res.json(GetProductResponse.parse(response));
+  res
+    .set("Cache-Control", "public, max-age=10, stale-while-revalidate=20")
+    .json(GetProductResponse.parse(response));
 });
 
 router.get("/category-images/:categoryId", async (req, res): Promise<void> => {

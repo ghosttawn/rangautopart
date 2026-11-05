@@ -28,6 +28,8 @@ export interface Order {
   deliveryCity: string;
   deliveryRegion: string;
   /** @nullable */
+  deliveryCountry: string | null;
+  /** @nullable */
   deliveryNotes?: string | null;
   deliveryFeeMinor: number;
   /** @nullable */

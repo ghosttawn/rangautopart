@@ -34,6 +34,11 @@ export interface CheckoutInput {
      * @maxLength 100
      */
   region: string;
+  /**
+     * @minLength 2
+     * @maxLength 100
+     */
+  country: string;
   /** @maxLength 500 */
   deliveryNotes?: string;
 }

@@ -168,6 +168,7 @@ export const deliveriesTable = pgTable(
     address: text("address").notNull(),
     city: text("city").notNull(),
     region: text("region").notNull(),
+    country: text("country"),
     deliveryNotes: text("delivery_notes"),
     deliveryMethod: text("delivery_method").notNull().default("delivery"),
     trackingReference: text("tracking_reference"),

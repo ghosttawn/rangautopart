@@ -46,12 +46,6 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
           This part of the app hit an error. The rest of the app is still
           running.
         </p>
-        {/* Dev only: messages can carry API responses and other internals. */}
-        {import.meta.env.DEV ? (
-          <pre className="mt-4 overflow-x-auto rounded bg-gray-100 p-3 text-left text-xs text-gray-800">
-            {error.message || String(error)}
-          </pre>
-        ) : null}
         <button
           type="button"
           onClick={resetError}
@@ -75,11 +69,10 @@ export class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo): void {
-    console.error(
-      'ErrorBoundary caught an error:',
-      toError(error),
-      info.componentStack,
-    );
+    console.error('The page could not be rendered.', {
+      errorName: toError(error).name,
+      componentStack: info.componentStack,
+    });
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps): void {

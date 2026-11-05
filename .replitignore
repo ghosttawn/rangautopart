@@ -3,3 +3,12 @@
 
 # No need to store the pnpm store twice.
 .local
+
+# Local credentials and database files must not be bundled.
+.env
+.env.*
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup

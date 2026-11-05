@@ -20,8 +20,8 @@ const sourceDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(sourceDirectory, "../..");
 const imageDirectory = resolve(workspaceRoot, "attached_assets/generated_images");
 
-if (process.env.NODE_ENV === "production") {
-  throw new Error("Demo records can only be seeded into a development database.");
+if (process.env.NODE_ENV !== "development") {
+  throw new Error("Demo records can only be seeded with NODE_ENV=development.");
 }
 if (process.env.RANG_DEMO_SEED_CONFIRM !== "development") {
   throw new Error(

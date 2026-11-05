@@ -151,7 +151,7 @@ function CartPreview() {
       <div className="cart-preview-summary"><span>Subtotal</span><strong data-testid="text-cart-preview-subtotal">{money(cart?.subtotalMinor ?? 0, cart?.currency)}</strong></div>
       <p className="cart-preview-note">Delivery is calculated in your cart. Fitment details can vary by model year; check before placing your order.</p>
       {(update.isError || remove.isError) && <p className="notice error" role="alert">Cart could not be updated. Please try again.</p>}
-      <div className="cart-drawer-actions"><Link href="/cart" className="btn btn-outline" onClick={() => setOpen(false)} data-testid="link-open-full-cart">View full cart <ArrowRight size={15}/></Link><button type="button" className="btn btn-accent" onClick={() => setOpen(false)} data-testid="button-continue-shopping">Continue shopping</button></div>
+       <div className="cart-drawer-actions"><Link href="/cart" className="btn btn-outline" onClick={() => setOpen(false)} data-testid="link-open-full-cart">View full cart <ArrowRight size={15}/></Link>{cart?.items.length?<Link href="/checkout" className="btn btn-accent" onClick={() => setOpen(false)} data-testid="link-cart-preview-checkout">Checkout <ArrowRight size={15}/></Link>:<button type="button" className="btn btn-accent" onClick={() => setOpen(false)} data-testid="button-continue-shopping">Continue shopping</button>}</div>
     </section>
   </div>;
 }

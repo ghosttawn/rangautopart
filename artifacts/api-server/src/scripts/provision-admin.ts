@@ -1,21 +1,24 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, pool, usersTable } from "@workspace/db";
-import { hashPassword } from "../lib/auth";
+import { hashPassword, revokeUserSessions } from "../lib/auth";
 
 async function main() {
+  const environment = process.env.NODE_ENV;
+  const confirmation = environment === "production" ? "production" : "development";
   if (
-    process.env.NODE_ENV !== "development" ||
-    process.env.RANG_ADMIN_PROVISION_CONFIRM !== "development"
+    (environment !== "development" && environment !== "production") ||
+    process.env.RANG_ADMIN_PROVISION_CONFIRM !== confirmation
   ) {
     throw new Error(
-      "Admin provisioning is development-only. Set NODE_ENV=development and RANG_ADMIN_PROVISION_CONFIRM=development.",
+      "Set NODE_ENV and RANG_ADMIN_PROVISION_CONFIRM to the same explicit value (development or production).",
     );
   }
 
-  const email = (
-    process.argv[2] ?? "rang.admin@rang-auto-parts.test"
-  ).trim().toLowerCase();
+  if (environment === "production" && !process.argv[2]) {
+    throw new Error("Provide the intended administrator email explicitly in production.");
+  }
+  const email = (process.argv[2] ?? "rang.admin@rang-auto-parts.test").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error("Provide a valid administrator email address.");
   }
@@ -42,11 +45,12 @@ async function main() {
         updatedAt: new Date(),
       })
       .where(eq(usersTable.id, existing.id));
+    await revokeUserSessions(existing.id);
   } else {
     await db.insert(usersTable).values({
       id: randomUUID(),
       email,
-      name: "RANG Development Admin",
+      name: environment === "production" ? "RANG Administrator" : "RANG Development Admin",
       role: "admin",
       passwordHash,
     });
@@ -54,7 +58,7 @@ async function main() {
 
   process.stdout.write(
     [
-      "Development administrator created.",
+      `${environment === "production" ? "Production" : "Development"} administrator provisioned.`,
       `Email: ${email}`,
       `Temporary password: ${temporaryPassword}`,
       "Sign in at /admin/login, then change the password from Account settings.",

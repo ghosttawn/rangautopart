@@ -516,6 +516,9 @@ export const submitOrderBodyCityMax = 100;
 export const submitOrderBodyRegionMin = 2;
 export const submitOrderBodyRegionMax = 100;
 
+export const submitOrderBodyCountryMin = 2;
+export const submitOrderBodyCountryMax = 100;
+
 export const submitOrderBodyDeliveryNotesMax = 500;
 
 
@@ -528,6 +531,7 @@ export const SubmitOrderBody = zod.object({
   "address": zod.string().min(submitOrderBodyAddressMin).max(submitOrderBodyAddressMax),
   "city": zod.string().min(submitOrderBodyCityMin).max(submitOrderBodyCityMax),
   "region": zod.string().min(submitOrderBodyRegionMin).max(submitOrderBodyRegionMax),
+  "country": zod.string().min(submitOrderBodyCountryMin).max(submitOrderBodyCountryMax),
   "deliveryNotes": zod.string().max(submitOrderBodyDeliveryNotesMax).optional()
 })
 
@@ -562,11 +566,17 @@ export const updateAccountBodyNameMax = 160;
 
 export const updateAccountBodyPhoneMax = 32;
 
+export const updateAccountBodyEmailMax = 254;
+
+export const updateAccountBodyCurrentPasswordMax = 128;
+
 
 
 export const UpdateAccountBody = zod.object({
   "name": zod.string().min(updateAccountBodyNameMin).max(updateAccountBodyNameMax).optional(),
-  "phone": zod.string().max(updateAccountBodyPhoneMax).nullish()
+  "phone": zod.string().max(updateAccountBodyPhoneMax).nullish(),
+  "email": zod.string().email().max(updateAccountBodyEmailMax).optional(),
+  "currentPassword": zod.string().min(1).max(updateAccountBodyCurrentPasswordMax).optional()
 })
 
 export const UpdateAccountResponse = zod.object({
@@ -598,6 +608,7 @@ export const ListCustomerOrdersResponseItem = zod.object({
   "deliveryAddress": zod.string(),
   "deliveryCity": zod.string(),
   "deliveryRegion": zod.string(),
+  "deliveryCountry": zod.string().nullable(),
   "deliveryNotes": zod.string().nullish(),
   "deliveryFeeMinor": zod.number().int(),
   "staffNote": zod.string().nullish(),
@@ -635,6 +646,7 @@ export const GetCustomerOrderResponse = zod.object({
   "deliveryAddress": zod.string(),
   "deliveryCity": zod.string(),
   "deliveryRegion": zod.string(),
+  "deliveryCountry": zod.string().nullable(),
   "deliveryNotes": zod.string().nullish(),
   "deliveryFeeMinor": zod.number().int(),
   "staffNote": zod.string().nullish(),
@@ -1141,6 +1153,7 @@ export const ListAdminOrdersResponseItem = zod.object({
   "deliveryAddress": zod.string(),
   "deliveryCity": zod.string(),
   "deliveryRegion": zod.string(),
+  "deliveryCountry": zod.string().nullable(),
   "deliveryNotes": zod.string().nullish(),
   "deliveryFeeMinor": zod.number().int(),
   "staffNote": zod.string().nullish(),
@@ -1189,6 +1202,7 @@ export const UpdateOrderResponse = zod.object({
   "deliveryAddress": zod.string(),
   "deliveryCity": zod.string(),
   "deliveryRegion": zod.string(),
+  "deliveryCountry": zod.string().nullable(),
   "deliveryNotes": zod.string().nullish(),
   "deliveryFeeMinor": zod.number().int(),
   "staffNote": zod.string().nullish(),
@@ -1199,6 +1213,93 @@ export const UpdateOrderResponse = zod.object({
   "unitPriceMinor": zod.number().int(),
   "lineTotalMinor": zod.number().int()
 }))
+})
+
+
+/**
+ * @summary Send a message to the parts desk inbox
+ */
+export const createSupportMessageBodyNameMin = 2;
+export const createSupportMessageBodyNameMax = 160;
+
+export const createSupportMessageBodyEmailMax = 254;
+
+export const createSupportMessageBodyPhoneMax = 32;
+
+export const createSupportMessageBodySubjectMin = 3;
+export const createSupportMessageBodySubjectMax = 120;
+
+export const createSupportMessageBodyMessageMin = 10;
+export const createSupportMessageBodyMessageMax = 3000;
+
+
+
+export const CreateSupportMessageBody = zod.object({
+  "name": zod.string().min(createSupportMessageBodyNameMin).max(createSupportMessageBodyNameMax),
+  "email": zod.string().email().max(createSupportMessageBodyEmailMax),
+  "phone": zod.string().max(createSupportMessageBodyPhoneMax).optional(),
+  "subject": zod.string().min(createSupportMessageBodySubjectMin).max(createSupportMessageBodySubjectMax),
+  "message": zod.string().min(createSupportMessageBodyMessageMin).max(createSupportMessageBodyMessageMax)
+})
+
+export const CreateSupportMessageResponse = zod.object({
+  "id": zod.string().uuid(),
+  "createdAt": zod.coerce.date(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary List customer messages in the staff inbox
+ */
+export const listAdminSupportMessagesQueryPageDefault = 1;
+
+export const listAdminSupportMessagesQueryLimitDefault = 20;
+export const listAdminSupportMessagesQueryLimitMax = 50;
+
+
+
+export const ListAdminSupportMessagesQueryParams = zod.object({
+  "status": zod.enum(['open', 'resolved']).optional(),
+  "page": zod.coerce.number().int().min(1).default(listAdminSupportMessagesQueryPageDefault),
+  "limit": zod.coerce.number().int().min(1).max(listAdminSupportMessagesQueryLimitMax).default(listAdminSupportMessagesQueryLimitDefault)
+})
+
+export const ListAdminSupportMessagesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "email": zod.string().email(),
+  "phone": zod.string().nullable(),
+  "subject": zod.string(),
+  "message": zod.string(),
+  "status": zod.enum(['open', 'resolved']),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number().int()
+})
+
+
+/**
+ * @summary Mark a support message open or resolved
+ */
+export const UpdateAdminSupportMessageByIdParams = zod.object({
+  "messageId": zod.coerce.string().uuid()
+})
+
+export const UpdateAdminSupportMessageByIdBody = zod.object({
+  "status": zod.enum(['open', 'resolved'])
+})
+
+export const UpdateAdminSupportMessageByIdResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "email": zod.string().email(),
+  "phone": zod.string().nullable(),
+  "subject": zod.string(),
+  "message": zod.string(),
+  "status": zod.enum(['open', 'resolved']),
+  "createdAt": zod.coerce.date()
 })
 
 

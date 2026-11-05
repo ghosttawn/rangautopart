@@ -11,9 +11,60 @@ import { HttpError } from "./middlewares/auth";
 const app: Express = express();
 app.set("trust proxy", 1);
 
+const configuredOrigins = (process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean)
+  .map((value) => {
+    try {
+      const parsed = new URL(value);
+      if (
+        !["https:", "http:"].includes(parsed.protocol) ||
+        parsed.username ||
+        parsed.password ||
+        parsed.pathname !== "/" ||
+        parsed.search ||
+        parsed.hash
+      ) {
+        throw new Error("invalid origin");
+      }
+      return parsed.origin.toLowerCase();
+    } catch {
+      throw new Error("FRONTEND_ORIGINS must contain exact HTTP(S) origins without paths.");
+    }
+  });
+
+if (process.env.NODE_ENV === "production" && configuredOrigins.length === 0) {
+  throw new Error("Set FRONTEND_ORIGINS to the exact deployed storefront origin.");
+}
+
+function isAllowedOrigin(origin: string, req: express.Request): boolean {
+  try {
+    const parsedOrigin = new URL(origin);
+    if (configuredOrigins.includes(parsedOrigin.origin.toLowerCase())) return true;
+    const forwardedHost = req.header("x-forwarded-host")?.split(",")[0]?.trim();
+    const requestHost = forwardedHost || req.header("host");
+    const forwardedProtocol = req.header("x-forwarded-proto")?.split(",")[0]?.trim();
+    const requestProtocol = forwardedProtocol
+      ? `${forwardedProtocol.replace(/:$/, "")}:`
+      : `${req.protocol}:`;
+    return Boolean(
+      requestHost &&
+        parsedOrigin.host.toLowerCase() === requestHost.toLowerCase() &&
+        parsedOrigin.protocol.toLowerCase() === requestProtocol.toLowerCase(),
+    );
+  } catch {
+    return false;
+  }
+}
+
 app.use(
   pinoHttp({
     logger,
+    redact: {
+      paths: ["req.headers.cookie", "req.headers.authorization", "res.headers.set-cookie"],
+      censor: "[Redacted]",
+    },
     serializers: {
       req(req) {
         return {
@@ -34,27 +85,23 @@ app.use(
 app.use(
   cors((req, callback) => {
     const origin = req.header("origin");
-    const forwardedHost = req.header("x-forwarded-host")?.split(",")[0]?.trim();
-    const requestHost = forwardedHost || req.header("host");
-    if (!origin || !requestHost) {
+    if (!origin) {
       callback(null, { origin: false });
       return;
     }
-    try {
-      const isSameOrigin = new URL(origin).host.toLowerCase() === requestHost.toLowerCase();
-      callback(null, {
-        origin: isSameOrigin,
-        credentials: isSameOrigin,
-      });
-    } catch {
-      callback(null, { origin: false });
-    }
+    const allowed = isAllowedOrigin(origin, req);
+    callback(null, { origin: allowed, credentials: allowed });
   }),
 );
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -66,30 +113,32 @@ const apiLimiter = rateLimit({
 app.use("/api", apiLimiter, (req, res, next) => {
   if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
     const origin = req.header("origin");
-    const forwardedHost = req.header("x-forwarded-host")?.split(",")[0]?.trim();
-    const requestHost = forwardedHost || req.header("host");
-    if (origin && requestHost) {
-      try {
-        if (new URL(origin).host.toLowerCase() !== requestHost.toLowerCase()) {
-          res.status(403).json({
-            error: "This request could not be verified.",
-            code: "CROSS_ORIGIN_REQUEST",
-          });
-          return;
-        }
-      } catch {
-        res.status(403).json({
-          error: "This request could not be verified.",
-          code: "CROSS_ORIGIN_REQUEST",
-        });
-        return;
-      }
+    if (origin && !isAllowedOrigin(origin, req)) {
+      res.status(403).json({
+        error: "This request could not be verified.",
+        code: "CROSS_ORIGIN_REQUEST",
+      });
+      return;
     }
   }
   next();
 });
 
 app.use("/api", router);
+
+app.use("/api", (_req, res) => {
+  res.status(404).json({
+    error: "That API route was not found.",
+    code: "API_ROUTE_NOT_FOUND",
+  });
+});
+
+app.use((_req, res) => {
+  res.status(404).json({
+    error: "That route was not found.",
+    code: "ROUTE_NOT_FOUND",
+  });
+});
 
 app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (err instanceof HttpError) {
@@ -105,6 +154,18 @@ app.use((err: unknown, req: express.Request, res: express.Response, _next: expre
     res.status(413).json({
       error: "Image files must be 5 MB or smaller.",
       code: "IMAGE_TOO_LARGE",
+    });
+    return;
+  }
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "type" in err &&
+    err.type === "entity.parse.failed"
+  ) {
+    res.status(400).json({
+      error: "The request body is not valid JSON.",
+      code: "INVALID_JSON",
     });
     return;
   }

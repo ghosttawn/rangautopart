@@ -11,12 +11,24 @@ import {
   Router as WouterRouter,
 } from 'wouter';
 import { AboutPage, AccountPage, CartPage, CatalogPage, CheckoutPage, ContactPage, HomePage, OrderPage, OrdersPage, PrivacyPage, ProductPage, TermsPage } from '@/pages/StorePages';
-import { AdminCategoriesPage, AdminCustomersPage, AdminInventoryPage, AdminOrdersPage, AdminOverviewPage, AdminProductsPage, AdminSettingsPage } from '@/pages/AdminPages';
+import { AdminCategoriesPage, AdminCustomersPage, AdminInventoryPage, AdminOrdersPage, AdminOverviewPage, AdminProductsPage, AdminSettingsPage, AdminSupportPage } from '@/pages/AdminPages';
 import { ForgotPasswordPage, ResetPasswordPage, SignInPage, SignUpPage } from '@/pages/AuthPages';
 import { useGetAuthSession } from '@workspace/api-client-react';
 import { SeoController } from '@/components/seo';
 
 const queryClient = new QueryClient();
+queryClient.setQueryDefaults(['/api/storefront'], {
+  staleTime: 30_000,
+  gcTime: 5 * 60_000,
+});
+queryClient.setQueryDefaults(['/api/categories'], {
+  staleTime: 5 * 60_000,
+  gcTime: 10 * 60_000,
+});
+queryClient.setQueryDefaults(['/api/products'], {
+  staleTime: 15_000,
+  gcTime: 2 * 60_000,
+});
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 function Router() {
@@ -58,6 +70,7 @@ function Router() {
         <Route path="/admin/inventory" component={AdminInventoryPage} />
         <Route path="/admin/categories" component={AdminCategoriesPage} />
         <Route path="/admin/orders" component={AdminOrdersPage} />
+        <Route path="/admin/support" component={AdminSupportPage} />
         <Route path="/admin/customers" component={AdminCustomersPage} />
         <Route path="/admin/settings" component={AdminSettingsPage} />
         <Route component={NotFound} />

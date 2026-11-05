@@ -23,6 +23,12 @@ import {
   storeSettingsTable,
   usersTable,
 } from "@workspace/db";
+import { verifyPassword } from "../lib/auth";
+import {
+  hasCompleteDeliveryDetails,
+  isDeliveryAllowed,
+  normalizeCheckoutDetails,
+} from "../lib/delivery";
 import { HttpError, resolveCurrentUser } from "../middlewares/auth";
 import { getOrCreateCart, getSettings, orderDto, unitPrice } from "../lib/store";
 
@@ -42,10 +48,17 @@ router.post("/checkout", async (req, res): Promise<void> => {
     return;
   }
 
+  const input = normalizeCheckoutDetails(parsed.data);
+  if (!hasCompleteDeliveryDetails(input)) {
+    res.status(400).json(
+      errorResponse("Enter complete contact and international delivery details.", "INVALID_CHECKOUT"),
+    );
+    return;
+  }
+
   const user = await resolveCurrentUser(req, res);
   const { cartId, sessionId } = await getOrCreateCart(req, res, user);
   const settings = await getSettings();
-  const input = parsed.data;
   const orderNumber = `RNG-${new Date().getFullYear()}-${randomBytes(4).toString("hex").toUpperCase()}`;
 
   const result = await db.transaction(async (tx) => {
@@ -71,16 +84,11 @@ router.post("/checkout", async (req, res): Promise<void> => {
         "Cash on delivery is not currently available.",
       );
     }
-    if (
-      settings.deliveryRegions.length > 0 &&
-      !settings.deliveryRegions.some(
-        (region) => region.trim().toLowerCase() === input.region.trim().toLowerCase(),
-      )
-    ) {
+    if (!isDeliveryAllowed(settings.deliveryRegions, input.country, input.region)) {
       throw new HttpError(
         400,
         "DELIVERY_REGION_UNAVAILABLE",
-        "Delivery is not currently available in that region.",
+        "The store has not confirmed delivery for this country or region. Contact the parts desk before placing the order.",
       );
     }
 
@@ -169,6 +177,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
       address: input.address.trim(),
       city: input.city.trim(),
       region: input.region.trim(),
+      country: input.country.trim(),
       deliveryNotes: input.deliveryNotes?.trim() || null,
     });
     await tx.insert(paymentsTable).values({
@@ -226,8 +235,11 @@ router.get("/account", async (req, res): Promise<void> => {
 
 router.patch("/account", async (req, res): Promise<void> => {
   const body = UpdateAccountBody.safeParse(req.body);
-  if (!body.success || Object.keys(body.data ?? {}).length === 0) {
-    res.status(400).json(errorResponse("Enter a valid name or phone number.", "INVALID_ACCOUNT"));
+  if (
+    !body.success ||
+    !Object.keys(body.data ?? {}).some((key) => key !== "currentPassword")
+  ) {
+    res.status(400).json(errorResponse("Enter valid account details.", "INVALID_ACCOUNT"));
     return;
   }
   const user = await resolveCurrentUser(req, res);
@@ -236,15 +248,53 @@ router.patch("/account", async (req, res): Promise<void> => {
     return;
   }
 
-  const [updated] = await db
-    .update(usersTable)
-    .set({
-      ...(body.data.name !== undefined ? { name: body.data.name.trim() } : {}),
-      ...(body.data.phone !== undefined ? { phone: body.data.phone?.trim() || null } : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(usersTable.id, user.id))
-    .returning();
+  const email = body.data.email?.trim().toLowerCase();
+  if (email && email !== user.email.toLowerCase()) {
+    if (!body.data.currentPassword || !(await verifyPassword(body.data.currentPassword, user.passwordHash))) {
+      res.status(401).json(
+        errorResponse("Confirm your current password to change your email.", "CURRENT_PASSWORD_INCORRECT"),
+      );
+      return;
+    }
+    const [existingEmail] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(sql`lower(${usersTable.email}) = ${email}`)
+      .limit(1);
+    if (existingEmail && existingEmail.id !== user.id) {
+      res.status(409).json(
+        errorResponse("An account already exists for this email.", "EMAIL_ALREADY_REGISTERED"),
+      );
+      return;
+    }
+  }
+
+  let updated: typeof user | undefined;
+  try {
+    [updated] = await db
+      .update(usersTable)
+      .set({
+        ...(body.data.name !== undefined ? { name: body.data.name.trim() } : {}),
+        ...(body.data.phone !== undefined ? { phone: body.data.phone?.trim() || null } : {}),
+        ...(email !== undefined ? { email } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(usersTable.id, user.id))
+      .returning();
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23505"
+    ) {
+      res.status(409).json(
+        errorResponse("An account already exists for this email.", "EMAIL_ALREADY_REGISTERED"),
+      );
+      return;
+    }
+    throw error;
+  }
   if (!updated) {
     res.status(404).json(errorResponse("Account not found.", "ACCOUNT_NOT_FOUND"));
     return;

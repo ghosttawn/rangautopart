@@ -17,4 +17,11 @@ export interface AccountUpdate {
      * @nullable
      */
   phone?: string | null;
+  /** @maxLength 254 */
+  email?: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  currentPassword?: string;
 }

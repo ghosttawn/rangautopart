@@ -144,31 +144,30 @@ function getStringField(value: unknown, key: string): string | undefined {
   return trimmed === "" ? undefined : trimmed;
 }
 
-function truncate(text: string, maxLength = 300): string {
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+function safeRequestPath(url: string): string {
+  try {
+    return new URL(url, "https://api.invalid").pathname || "/";
+  } catch {
+    return "/";
+  }
 }
 
 function buildErrorMessage(response: Response, data: unknown): string {
-  const prefix = `HTTP ${response.status} ${response.statusText}`;
-
-  if (typeof data === "string") {
-    const text = data.trim();
-    return text ? `${prefix}: ${truncate(text)}` : prefix;
+  if (response.status >= 500) {
+    return "The service is temporarily unavailable. Please try again shortly.";
   }
 
-  const title = getStringField(data, "title");
-  const detail = getStringField(data, "detail");
-  const message =
-    getStringField(data, "message") ??
-    getStringField(data, "error_description") ??
-    getStringField(data, "error");
-
-  if (title && detail) return `${prefix}: ${title} — ${detail}`;
-  if (detail) return `${prefix}: ${detail}`;
-  if (message) return `${prefix}: ${message}`;
-  if (title) return `${prefix}: ${title}`;
-
-  return prefix;
+  const message = getStringField(data, "error");
+  const code = getStringField(data, "code");
+  if (
+    message &&
+    code &&
+    message.length <= 240 &&
+    !/[<>]|https?:\/\/|(?:^|\n)\s*at\s/i.test(message)
+  ) {
+    return message;
+  }
+  return "The request could not be completed. Please try again.";
 }
 
 export class ApiError<T = unknown> extends Error {
@@ -195,7 +194,7 @@ export class ApiError<T = unknown> extends Error {
     this.headers = response.headers;
     this.response = response;
     this.method = requestInfo.method;
-    this.url = response.url || requestInfo.url;
+    this.url = safeRequestPath(response.url || requestInfo.url);
   }
 }
 
@@ -207,19 +206,14 @@ export class ResponseParseError extends Error {
   readonly response: Response;
   readonly method: string;
   readonly url: string;
-  readonly rawBody: string;
   readonly cause: unknown;
 
   constructor(
     response: Response,
-    rawBody: string,
     cause: unknown,
     requestInfo: { method: string; url: string },
   ) {
-    super(
-      `Failed to parse response from ${requestInfo.method} ${response.url || requestInfo.url} ` +
-        `(${response.status} ${response.statusText}) as JSON`,
-    );
+    super("The service returned an unexpected response. Please try again shortly.");
     Object.setPrototypeOf(this, new.target.prototype);
 
     this.status = response.status;
@@ -227,8 +221,7 @@ export class ResponseParseError extends Error {
     this.headers = response.headers;
     this.response = response;
     this.method = requestInfo.method;
-    this.url = response.url || requestInfo.url;
-    this.rawBody = rawBody;
+    this.url = safeRequestPath(response.url || requestInfo.url);
     this.cause = cause;
   }
 }
@@ -247,7 +240,7 @@ async function parseJsonBody(
   try {
     return JSON.parse(normalized);
   } catch (cause) {
-    throw new ResponseParseError(response, raw, cause, requestInfo);
+    throw new ResponseParseError(response, cause, requestInfo);
   }
 }
 
@@ -257,6 +250,14 @@ async function parseErrorBody(response: Response, method: string): Promise<unkno
   }
 
   const mediaType = getMediaType(response.headers);
+
+  if (mediaType === "text/html" || mediaType === "application/xhtml+xml") {
+    void response.body?.cancel();
+    return {
+      error: "The service is temporarily unavailable. Please try again shortly.",
+      code: "UNEXPECTED_SERVICE_RESPONSE",
+    };
+  }
 
   // Fall back to text when blob() is unavailable (e.g. some React Native builds).
   if (mediaType && !isJsonMediaType(mediaType) && !isTextMediaType(mediaType)) {
@@ -275,11 +276,17 @@ async function parseErrorBody(response: Response, method: string): Promise<unkno
     try {
       return JSON.parse(normalized);
     } catch {
-      return raw;
+      return {
+        error: "The service returned an unexpected response. Please try again shortly.",
+        code: "UNEXPECTED_SERVICE_RESPONSE",
+      };
     }
   }
 
-  return raw;
+  return {
+    error: "The service returned an unexpected response. Please try again shortly.",
+    code: "UNEXPECTED_SERVICE_RESPONSE",
+  };
 }
 
 function inferResponseType(response: Response): "json" | "text" | "blob" {
@@ -360,12 +367,37 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const requestController = new AbortController();
+  let timedOut = false;
+  const onCallerAbort = () => requestController.abort(init.signal?.reason);
+  if (init.signal?.aborted) onCallerAbort();
+  else init.signal?.addEventListener("abort", onCallerAbort, { once: true });
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    requestController.abort();
+  }, 15_000);
 
-  if (!response.ok) {
-    const errorData = await parseErrorBody(response, method);
-    throw new ApiError(response, errorData, requestInfo);
+  try {
+    const response = await fetch(input, {
+      ...init,
+      method,
+      headers,
+      credentials: init.credentials ?? "include",
+      signal: requestController.signal,
+    });
+    if (!response.ok) {
+      const errorData = await parseErrorBody(response, method);
+      throw new ApiError(response, errorData, requestInfo);
+    }
+
+    return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  } catch (error) {
+    if (init.signal?.aborted) throw error;
+    if (timedOut) throw new Error("The service took too long to respond. Please try again.");
+    if (error instanceof ApiError || error instanceof ResponseParseError) throw error;
+    throw new Error("The parts service could not be reached. Check your connection and try again.");
+  } finally {
+    clearTimeout(timeoutId);
+    init.signal?.removeEventListener("abort", onCallerAbort);
   }
-
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
 }

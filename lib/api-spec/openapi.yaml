@@ -10,6 +10,7 @@ tags:
   - name: storefront
   - name: cart
   - name: orders
+  - name: support
   - name: account
   - name: auth
   - name: admin
@@ -26,6 +27,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+        "503":
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /auth/session:
     get:
       operationId: getAuthSession
@@ -734,6 +741,81 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Order"
+  /support/messages:
+    post:
+      operationId: createSupportMessage
+      tags: [support]
+      summary: Send a message to the parts desk inbox
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportMessageInput"
+      responses:
+        "201":
+          description: Message saved to the staff inbox
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportMessageReceipt"
+        "400":
+          description: Message details are invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many messages were submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/support/messages:
+    get:
+      operationId: listAdminSupportMessages
+      tags: [admin]
+      summary: List customer messages in the staff inbox
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [open, resolved] }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200":
+          description: Staff inbox messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAdminSupportMessages"
+  /admin/support/messages/{messageId}:
+    patch:
+      operationId: updateAdminSupportMessageById
+      tags: [admin]
+      summary: Mark a support message open or resolved
+      parameters:
+        - in: path
+          name: messageId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportMessageUpdate"
+      responses:
+        "200":
+          description: Updated support message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSupportMessage"
   /admin/customers:
     get:
       operationId: listAdminCustomers
@@ -818,6 +900,47 @@ components:
       properties:
         error: { type: string }
         code: { type: string }
+    SupportMessageInput:
+      type: object
+      required: [name, email, subject, message]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 160 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, maxLength: 32 }
+        subject: { type: string, minLength: 3, maxLength: 120 }
+        message: { type: string, minLength: 10, maxLength: 3000 }
+    SupportMessageReceipt:
+      type: object
+      required: [id, createdAt, message]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        message: { type: string }
+    AdminSupportMessage:
+      type: object
+      required: [id, name, email, phone, subject, message, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: ["string", "null"] }
+        subject: { type: string }
+        message: { type: string }
+        status: { type: string, enum: [open, resolved] }
+        createdAt: { type: string, format: date-time }
+    ListAdminSupportMessages:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AdminSupportMessage" }
+        total: { type: integer }
+    SupportMessageUpdate:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [open, resolved] }
     AuthUser:
       type: object
       required: [id, email, name, role]
@@ -1109,7 +1232,7 @@ components:
         quantity: { type: integer, minimum: 1, maximum: 50 }
     CheckoutInput:
       type: object
-      required: [idempotencyKey, name, email, phone, address, city, region]
+      required: [idempotencyKey, name, email, phone, address, city, region, country]
       properties:
         idempotencyKey: { type: string, format: uuid }
         name: { type: string, minLength: 2, maxLength: 160 }
@@ -1118,6 +1241,7 @@ components:
         address: { type: string, minLength: 5, maxLength: 300 }
         city: { type: string, minLength: 2, maxLength: 100 }
         region: { type: string, minLength: 2, maxLength: 100 }
+        country: { type: string, minLength: 2, maxLength: 100 }
         deliveryNotes: { type: string, maxLength: 500 }
     CheckoutResult:
       type: object
@@ -1131,7 +1255,7 @@ components:
         currency: { type: string }
     Order:
       type: object
-      required: [id, orderNumber, orderStatus, paymentStatus, paymentMethod, fulfillmentStatus, totalMinor, currency, createdAt, items, customerName, customerEmail, customerPhone, deliveryAddress, deliveryCity, deliveryRegion, deliveryFeeMinor]
+      required: [id, orderNumber, orderStatus, paymentStatus, paymentMethod, fulfillmentStatus, totalMinor, currency, createdAt, items, customerName, customerEmail, customerPhone, deliveryAddress, deliveryCity, deliveryRegion, deliveryCountry, deliveryFeeMinor]
       properties:
         id: { type: string }
         orderNumber: { type: string }
@@ -1148,6 +1272,7 @@ components:
         deliveryAddress: { type: string }
         deliveryCity: { type: string }
         deliveryRegion: { type: string }
+        deliveryCountry: { type: ["string", "null"] }
         deliveryNotes: { type: ["string", "null"] }
         deliveryFeeMinor: { type: integer }
         staffNote: { type: ["string", "null"] }
@@ -1185,6 +1310,8 @@ components:
       properties:
         name: { type: string, minLength: 2, maxLength: 160 }
         phone: { type: ["string", "null"], maxLength: 32 }
+        email: { type: string, format: email, maxLength: 254 }
+        currentPassword: { type: string, minLength: 1, maxLength: 128 }
     AdminOverview:
       type: object
       required: [ordersToday, pendingOrders, lowStockProducts, customers, salesTodayMinor, currency]

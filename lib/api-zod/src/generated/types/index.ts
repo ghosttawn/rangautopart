@@ -8,6 +8,8 @@
 
 export * from './accountUpdate';
 export * from './adminOverview';
+export * from './adminSupportMessage';
+export * from './adminSupportMessageStatus';
 export * from './authSession';
 export * from './authUser';
 export * from './authUserRole';
@@ -34,6 +36,9 @@ export * from './heroImageUpload';
 export * from './listAdminCustomersParams';
 export * from './listAdminOrdersParams';
 export * from './listAdminProductsParams';
+export * from './listAdminSupportMessages';
+export * from './listAdminSupportMessagesParams';
+export * from './listAdminSupportMessagesStatus';
 export * from './listProductsAvailability';
 export * from './listProductsParams';
 export * from './listProductsSort';
@@ -66,3 +71,7 @@ export * from './resetPasswordInput';
 export * from './storefront';
 export * from './storeSettings';
 export * from './storeSettingsInput';
+export * from './supportMessageInput';
+export * from './supportMessageReceipt';
+export * from './supportMessageUpdate';
+export * from './supportMessageUpdateStatus';

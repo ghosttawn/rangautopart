@@ -5,26 +5,35 @@ import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
-const rawPort = process.env.PORT;
-
-if (!rawPort) {
-  throw new Error(
-    'PORT environment variable is required but was not provided.',
-  );
-}
-
+const rawPort = process.env.PORT ?? '5173';
 const port = Number(rawPort);
 
-if (Number.isNaN(port) || port <= 0) {
+if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH ?? '/';
+const apiOrigin = process.env.VITE_API_BASE_URL?.trim();
 
-if (!basePath) {
-  throw new Error(
-    'BASE_PATH environment variable is required but was not provided.',
-  );
+if (process.env.VITE_REQUIRE_API_BASE_URL === 'true') {
+  if (!apiOrigin) {
+    throw new Error('VITE_API_BASE_URL is required for a separately hosted storefront.');
+  }
+  try {
+    const parsedApiOrigin = new URL(apiOrigin);
+    if (
+      !['http:', 'https:'].includes(parsedApiOrigin.protocol) ||
+      parsedApiOrigin.username ||
+      parsedApiOrigin.password ||
+      parsedApiOrigin.pathname !== '/' ||
+      parsedApiOrigin.search ||
+      parsedApiOrigin.hash
+    ) {
+      throw new Error('invalid API origin');
+    }
+  } catch {
+    throw new Error('VITE_API_BASE_URL must be an HTTP(S) origin without a path.');
+  }
 }
 
 export default defineConfig({

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, or, sql } from "drizzle-orm";
 import { Router, type IRouter, type RequestHandler } from "express";
 import multer from "multer";
 import {
@@ -21,10 +21,15 @@ import {
   ListAdminCustomersResponse,
   ListAdminOrdersQueryParams,
   ListAdminOrdersResponse,
+  ListAdminSupportMessagesQueryParams,
+  ListAdminSupportMessagesResponse,
   ListAdminProductsQueryParams,
   ListAdminProductsResponse,
   UpdateAdminSettingsBody,
   UpdateAdminSettingsResponse,
+  UpdateAdminSupportMessageByIdBody,
+  UpdateAdminSupportMessageByIdParams,
+  UpdateAdminSupportMessageByIdResponse,
   UpdateCategoryBody,
   UpdateCategoryParams,
   UpdateCategoryResponse,
@@ -52,6 +57,7 @@ import {
   productImagesTable,
   productsTable,
   storeSettingsTable,
+  supportMessagesTable,
   usersTable,
 } from "@workspace/db";
 import { HttpError, requireUser } from "../middlewares/auth";
@@ -74,6 +80,19 @@ const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function errorResponse(message: string, code: string) {
   return { error: message, code };
+}
+
+function supportMessageDto(row: typeof supportMessagesTable.$inferSelect) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    subject: row.subject,
+    message: row.message,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 const staffOnly: RequestHandler = async (req, res, next): Promise<void> => {
@@ -864,6 +883,59 @@ router.get("/admin/customers", async (req, res): Promise<void> => {
     }),
   );
   res.json(ListAdminCustomersResponse.parse(customerRows));
+});
+
+router.get("/admin/support/messages", async (req, res): Promise<void> => {
+  const parsed = ListAdminSupportMessagesQueryParams.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json(errorResponse("Invalid support inbox filter.", "INVALID_QUERY"));
+    return;
+  }
+
+  const page = parsed.data.page ?? 1;
+  const limit = parsed.data.limit ?? 20;
+  const where = parsed.data.status
+    ? eq(supportMessagesTable.status, parsed.data.status)
+    : undefined;
+  const [rows, [totalRow]] = await Promise.all([
+    db
+      .select()
+      .from(supportMessagesTable)
+      .where(where)
+      .orderBy(desc(supportMessagesTable.createdAt), desc(supportMessagesTable.id))
+      .limit(limit)
+      .offset((page - 1) * limit),
+    db.select({ total: count() }).from(supportMessagesTable).where(where),
+  ]);
+
+  res.json(
+    ListAdminSupportMessagesResponse.parse({
+      items: rows.map(supportMessageDto),
+      total: Number(totalRow?.total ?? 0),
+    }),
+  );
+});
+
+router.patch("/admin/support/messages/:messageId", async (req, res): Promise<void> => {
+  const params = UpdateAdminSupportMessageByIdParams.safeParse(req.params);
+  const parsed = UpdateAdminSupportMessageByIdBody.safeParse(req.body);
+  if (!params.success || !parsed.success) {
+    res
+      .status(400)
+      .json(errorResponse("Enter a valid support message update.", "INVALID_SUPPORT_MESSAGE"));
+    return;
+  }
+
+  const [updated] = await db
+    .update(supportMessagesTable)
+    .set({ status: parsed.data.status })
+    .where(eq(supportMessagesTable.id, params.data.messageId))
+    .returning();
+  if (!updated) {
+    res.status(404).json(errorResponse("Support message not found.", "SUPPORT_MESSAGE_NOT_FOUND"));
+    return;
+  }
+  res.json(UpdateAdminSupportMessageByIdResponse.parse(supportMessageDto(updated)));
 });
 
 router.get("/admin/settings", adminOnly, async (_req, res): Promise<void> => {

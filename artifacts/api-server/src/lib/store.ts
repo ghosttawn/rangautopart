@@ -376,6 +376,7 @@ export async function orderDto(order: Order) {
     deliveryAddress: delivery[0]?.address ?? "",
     deliveryCity: delivery[0]?.city ?? "",
     deliveryRegion: delivery[0]?.region ?? "",
+    deliveryCountry: delivery[0]?.country ?? null,
     deliveryNotes: delivery[0]?.deliveryNotes ?? null,
     deliveryFeeMinor: order.deliveryFeeMinor,
     staffNote: order.staffNote,
