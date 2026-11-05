@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
@@ -12,15 +10,6 @@ import { HttpError } from "./middlewares/auth";
 
 const app: Express = express();
 app.set("trust proxy", 1);
-const serveFrontend = process.env.SERVE_FRONTEND === "true";
-const frontendDirectory = path.resolve(__dirname, "../../rang-auto-parts/dist/public");
-const frontendIndex = path.join(frontendDirectory, "index.html");
-
-if (serveFrontend && !existsSync(frontendIndex)) {
-  throw new Error(
-    "SERVE_FRONTEND is enabled, but the storefront build is missing. Build the frontend before starting the API.",
-  );
-}
 
 const configuredOrigins = (process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? "")
   .split(",")
@@ -45,11 +34,7 @@ const configuredOrigins = (process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_
     }
   });
 
-if (
-  process.env.NODE_ENV === "production" &&
-  !serveFrontend &&
-  configuredOrigins.length === 0
-) {
+if (process.env.NODE_ENV === "production" && configuredOrigins.length === 0) {
   throw new Error("Set FRONTEND_ORIGINS to the exact deployed storefront origin.");
 }
 
@@ -147,35 +132,6 @@ app.use("/api", (_req, res) => {
     code: "API_ROUTE_NOT_FOUND",
   });
 });
-
-if (serveFrontend) {
-  app.use(
-    express.static(frontendDirectory, {
-      index: false,
-      setHeaders(res, filePath) {
-        const isFingerprintAsset = filePath.includes(`${path.sep}assets${path.sep}`);
-        res.setHeader(
-          "Cache-Control",
-          isFingerprintAsset
-            ? "public, max-age=31536000, immutable"
-            : path.extname(filePath).toLowerCase() === ".html"
-              ? "no-cache"
-              : "public, max-age=3600, stale-while-revalidate=86400",
-        );
-      },
-    }),
-  );
-  app.get(/.*/, (req, res, next) => {
-    if (path.extname(req.path)) {
-      next();
-      return;
-    }
-    res.setHeader("Cache-Control", "no-cache");
-    res.sendFile(frontendIndex, (error) => {
-      if (error) next(error);
-    });
-  });
-}
 
 app.use((_req, res) => {
   res.status(404).json({

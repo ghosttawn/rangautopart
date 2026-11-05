@@ -89,42 +89,36 @@ inserts only missing demo records, and preserves existing records. It does not
 create an administrator; use the separately guarded provisioning command for
 that. Re-running it is intended for development only.
 
-## 4. Render Web Service (recommended)
-
-Use one Render **Web Service** for the API and storefront. Serving both from the
-same origin keeps sign-in and cart cookies on the same host and avoids requiring
-custom domains just to make the browser accept those cookies.
+## 4. Render API Web Service
 
 | Setting | Value |
 | --- | --- |
 | Root Directory | repository root (`.`); leave blank if Render treats blank as root |
 | Runtime | Node |
-| Build Command | `pnpm install --frozen-lockfile && pnpm --filter @workspace/rang-auto-parts run build && pnpm --filter @workspace/api-server run build` |
+| Build Command | `pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build` |
 | Start Command | `pnpm --filter @workspace/api-server run start` |
 | Health Check Path | `/api/healthz` |
 
-Set these Web Service environment variables in Render:
+Set these API Web Service environment variables in Render:
 
 | Variable | Purpose | Secret? |
 | --- | --- | --- |
 | `DATABASE_URL` | Neon PostgreSQL connection string; use the pooled TLS URL | Yes |
+| `FRONTEND_ORIGINS` | Exact Static Site origin(s), comma-separated, without paths | No |
 | `NODE_ENV` | Set to `production` | No |
-| `SERVE_FRONTEND` | Set to `true` to serve the built storefront and same-origin `/api` routes | No |
 | `PORT` | Render supplies this; do not hardcode it | No |
 
 The service listens on `0.0.0.0` using Render's `PORT`. The health endpoint
 checks PostgreSQL and returns `503` if the database cannot be reached. Do not
-mark the service healthy solely because its process has started. The startup
-fails explicitly if `SERVE_FRONTEND=true` but the storefront build is missing.
+mark the API healthy solely because its process has started.
 
-Leave `VITE_API_BASE_URL` unset for this single-service setup: the storefront
-uses relative `/api/...` requests. `FRONTEND_ORIGINS` is not required when the
-Web Service serves both parts from the same origin.
+`FRONTEND_ORIGINS` must match the deployed Static Site origin exactly, including
+the scheme and any custom port. The API rejects cross-origin writes from origins
+that are not listed.
 
-## 5. Optional separate Render Static Site
+## 5. Render Static Site
 
-The default single Web Service is the recommended setup. If you instead want a
-separate **Static Site** and API Web Service, use the following settings:
+Create a separate **Static Site** from the same GitHub repository:
 
 | Setting | Value |
 | --- | --- |
@@ -139,8 +133,7 @@ load the app:
 | --- | --- | --- |
 | `/*` | `/index.html` | Rewrite, status `200` |
 
-For the API Web Service, also set `SERVE_FRONTEND=false` (or leave it unset) and
-set `FRONTEND_ORIGINS` to the exact Static Site origin. For the Static Site:
+Set this Static Site build environment:
 
 | Variable | Purpose | Secret? |
 | --- | --- | --- |
@@ -148,13 +141,17 @@ set `FRONTEND_ORIGINS` to the exact Static Site origin. For the Static Site:
 | `VITE_REQUIRE_API_BASE_URL` | Set to `true` so a missing or invalid API origin fails the Static Site build | No |
 
 The generated client already calls `/api/...`; the app prepends this origin at
-build time. `FRONTEND_ORIGINS` must match the deployed Static Site origin
-exactly, including scheme and any custom port; the API rejects unlisted
-cross-origin writes. For reliable cookie-based sign-in and cart persistence,
-serve both sites under HTTPS sibling custom domains on the same parent domain.
-Visitors should use the custom frontend domain, not a separate Render hostname.
-Do not put `DATABASE_URL`, a password, or any other private value in a `VITE_`
-variable: Vite embeds those values in public JavaScript.
+build time. Set `VITE_REQUIRE_API_BASE_URL=true` so the build fails if the API
+origin is missing or malformed. `FRONTEND_ORIGINS` on the API must match this
+Static Site origin exactly; the API rejects unlisted cross-origin writes.
+
+For reliable cookie-based sign-in and cart persistence, use HTTPS custom domains
+for the Static Site and API under the same parent domain, such as
+`shop.example.com` and `api.example.com`. Browser cookie rules can block those
+flows across separate default hosting domains, so test the actual deployed
+domains in the target browsers. Do not put `DATABASE_URL`, a password, or any
+other private value in a `VITE_` variable: Vite embeds those values in public
+JavaScript.
 
 Product, category, and homepage uploads are stored in PostgreSQL, not on the
 Web Service's temporary filesystem. No persistent Render disk or object-storage
@@ -165,14 +162,18 @@ cached, while upload validation and the 5 MB limit remain enforced by the API.
 
 Use this order:
 
-1. Create Neon and set the Web Service `DATABASE_URL`.
+1. Create Neon and set the API Web Service `DATABASE_URL`.
 2. Apply committed migrations to Neon.
-3. Create the Web Service with `SERVE_FRONTEND=true`; its build produces both
-   the API and storefront.
-4. Confirm `/api/healthz` returns HTTP `200`, then open the Web Service URL and
-   test direct navigation to `/catalog` and `/admin/login`.
-5. Provision the administrator using the guarded procedure below.
-6. Sign in at `/admin/login` and open **Settings**. Set the store name, currency,
+3. Create the API Web Service and the Static Site in Render so both assigned
+   service URLs are available.
+4. Set the API's `FRONTEND_ORIGINS` to the exact Static Site origin. Set the
+   Static Site's `VITE_API_BASE_URL` to the API origin and
+   `VITE_REQUIRE_API_BASE_URL=true`. Redeploy both services after setting these
+   values.
+5. Confirm `/api/healthz` returns HTTP `200`; open the Static Site and verify
+   product browsing and direct navigation to `/catalog` and `/admin/login`.
+6. Provision the administrator using the guarded procedure below.
+7. Sign in at `/admin/login` and open **Settings**. Set the store name, currency,
    delivery fee, support email and/or phone, and the intended delivery policy.
    Publish a staffed support channel before launch.
 
@@ -194,38 +195,31 @@ deliberately added.
 
 ### Optional custom domain
 
-1. For the recommended one-service setup, add the owned domain to the Web
-   Service under **Custom Domains** and follow the DNS records Render displays.
-   The frontend and API continue using the same host.
-2. If using a separate Static Site instead, give the frontend and API sibling
-   custom domains under the same parent domain (for example,
-   `shop.example.com` and `api.example.com`). Use HTTPS on both.
-3. Set the API's `FRONTEND_ORIGINS` to the exact frontend origin and set the
-   Static Site's `VITE_API_BASE_URL` to the API origin. Rebuild both services.
-   Keep using the custom frontend domain; the separate default Render hostnames
-   are not same-site with the API and may block cookie-based sign-in or carts.
+1. Add sibling custom domains for the Static Site and API Web Service under the
+   same parent domain (for example, `shop.example.com` and `api.example.com`).
+   Follow the DNS records Render displays and wait until HTTPS is active.
+2. Set `FRONTEND_ORIGINS` to the exact frontend origin and
+   `VITE_API_BASE_URL` to the API origin. Rebuild both services and verify
+   sign-in and cart persistence using the custom domains.
 
 No real URL, DNS record, or custom domain is assumed in this repository.
 
 ## 7. Environment variables by service
 
-### Web Service
+### API Web Service
 
 - `DATABASE_URL` — required secret; Neon PostgreSQL TLS connection string.
-- `SERVE_FRONTEND=true` — serves the built web storefront alongside the API;
-  use `false` or omit only when deploying a separate Static Site.
-- `FRONTEND_ORIGINS` — required only for the separate Static Site setup;
-  comma-separated exact origins, without path or trailing slash.
+- `FRONTEND_ORIGINS` — required in production; comma-separated exact Static
+  Site origins, without path or trailing slash.
 - `NODE_ENV=production` — enables production behavior and secure session cookies.
 - `PORT` — supplied by Render; the API binds to it.
 
 ### Static Site
 
 - `VITE_API_BASE_URL` — public API origin, no `/api` suffix. Required for the
-  separate Render Static Site + Web Service setup above; unset for one service.
-  It is not secret.
+  Render Static Site + Web Service setup above. It is not secret.
 - `VITE_REQUIRE_API_BASE_URL=true` — makes a missing or malformed API origin
-  fail the separate Static Site build. It is not secret.
+  fail the Static Site build. It is not secret.
 
 ### One-off commands only
 
@@ -275,8 +269,8 @@ cannot replace a password on an existing account.
 2. Open `https://<api-service-host>/api/storefront`; expect JSON and the
    configured storefront settings.
 3. Open the storefront and verify product browsing, search, and product details.
-   In the single-service setup, API requests should remain on the same origin at
-   `/api/...`, not a local address.
+   In browser developer tools, confirm requests go to the configured API host's
+   `/api/...` paths, not a local address.
 4. Verify sign-up/sign-in, sign-out, cart persistence, a cash-on-delivery test
    order, and order visibility in the admin dashboard. Use a test product and
    customer record, not a live customer's details.
@@ -288,21 +282,21 @@ cannot replace a password on an existing account.
    for a write request. Check both `FRONTEND_ORIGINS` and browser CORS errors if
    the API request fails.
 7. Test direct navigation and refresh on `/catalog`, `/cart`, `/checkout`, and
-   `/admin/login`. In a separate Static Site deployment, confirm the rewrite is
-   active.
+   `/admin/login` to confirm the Static Site rewrite is active.
 
 ## 10. Deploy future changes and troubleshoot
 
-- Push the reviewed changes to GitHub. Render rebuilds the configured service(s).
+- Push the reviewed changes to GitHub. Render rebuilds the API Web Service and
+  Static Site.
 - If a change adds a database column or index, generate and commit its Drizzle
   migration, back up production, run `pnpm --filter @workspace/db run migrate`
   against Neon, then deploy the code that uses it. Migrations are not run on
   API startup.
 - If the API returns `503` at `/api/healthz`, check the API logs, `DATABASE_URL`,
   Neon status, connection limit, and TLS requirement.
-- If the frontend shows a connection error or CORS failure in a separate-site
-  deployment, check `VITE_API_BASE_URL`, `FRONTEND_ORIGINS`, and that both
-  services use HTTPS. Rebuild the Static Site after changing its API origin.
+- If the frontend shows a connection error or CORS failure, check
+  `VITE_API_BASE_URL`, `FRONTEND_ORIGINS`, and that both services use HTTPS.
+  Rebuild the Static Site after changing its API origin.
 - If `/catalog` or another nested page returns `404` on refresh, check the
   Static Site rewrite to `/index.html`.
 - If a migration fails, stop and inspect the migration output and current
