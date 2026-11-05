@@ -1,0 +1,489 @@
+ STRICT FRONTEND & UX REQUIREMENTS
+
+This addendum is mandatory. It supplements the main application requirements and takes priority over any default frontend design decisions.
+
+The objective is to deliver a premium automotive e-commerce experience that feels professionally designed, commercially credible, and carefully engineered—not a generic AI-generated storefront.
+
+1. Establish a Distinct Visual Identity
+
+Design the entire customer-facing application around the identity of RANG ATV/AUTO PART/V ACCESSORIES.
+
+Before implementing the interface, establish a cohesive visual system covering:
+
+* Typography and font hierarchy.
+* Brand colors and neutral surfaces.
+* Spacing and layout proportions.
+* Border treatments, shadows, and radii.
+* Iconography and interaction states.
+* Product image presentation.
+* Buttons, forms, cards, and navigation.
+
+The design should communicate automotive expertise, reliability, and confidence.
+
+Avoid generic blue-and-white SaaS styling, oversized gradient backgrounds, excessive rounded cards, unnecessary decorative elements, and template-like layouts.
+
+Use a restrained, premium visual language appropriate for an established automotive parts retailer.
+
+2. Build a Real E-Commerce Interface, Not a Landing Page
+
+The primary experience is product discovery and purchasing.
+
+The homepage must be designed around the customer’s shopping journey rather than simply presenting a collection of promotional sections.
+
+Implement a carefully structured storefront with:
+
+* A professional header and shopping navigation.
+* A prominent, functional product search.
+* Clearly organized automotive product categories.
+* A purposeful promotional or featured-product area.
+* Product collections that help customers discover relevant items.
+* A visually clear product catalog.
+* Consistent product cards with useful information.
+* A persistent, accessible shopping cart entry point.
+
+The homepage must feel complete without becoming unnecessarily long or cluttered.
+
+Every section must serve a clear commercial or navigational purpose.
+
+3. Automotive Product Discovery
+
+Automotive parts shopping has different requirements from ordinary retail.
+
+Customers may know the exact part they need, or they may only know their vehicle.
+
+Design the product discovery experience around both situations.
+
+Implement:
+
+* Fast product search with useful suggestions.
+* Search by product name, SKU, brand, or relevant specifications.
+* Category-based browsing.
+* Useful filters for price, brand, availability, and other relevant attributes.
+* Sorting by price, relevance, and newest products.
+* A vehicle compatibility selector where appropriate.
+
+The vehicle selector should allow customers to identify their vehicle using relevant information such as make, model, and year.
+
+When compatibility information is available, clearly communicate whether a product fits the selected vehicle.
+
+Never imply compatibility when the information has not been verified.
+
+Search, filtering, and category navigation must work with actual backend data.
+
+Do not implement decorative search bars or filters that do nothing.
+
+4. Product Cards and Product Detail Experience
+
+Product presentation must be designed specifically for automotive parts and accessories.
+
+Product cards should prioritize:
+
+* Clear product imagery.
+* Product name.
+* Brand or manufacturer where available.
+* Price and applicable sale price.
+* Stock availability.
+* Relevant compatibility information.
+* A clear action for viewing or purchasing the product.
+
+Avoid excessive information that makes the catalog difficult to scan.
+
+The product detail page must provide a strong purchasing experience.
+
+Include:
+
+* A high-quality image gallery with zoom or full-image viewing.
+* Product name, brand, SKU, and price.
+* Stock availability.
+* Specifications and product description.
+* Vehicle compatibility information where applicable.
+* Quantity selection.
+* Add-to-cart functionality.
+* Delivery or collection information where available.
+* Relevant related products.
+
+The purchase action should be visually prominent without overwhelming the page.
+
+Ensure that the layout remains practical for products with long names, multiple specifications, or several images.
+
+5. Modern Interaction Design
+
+Use modern frontend interaction patterns that improve usability without adding unnecessary complexity.
+
+Implement:
+
+* Immediate visual feedback for cart actions.
+* Loading states for asynchronous operations.
+* Skeleton loading where appropriate.
+* Clear empty states.
+* Helpful validation messages.
+* Success and error notifications.
+* Optimistic updates only where safe.
+* Smooth but restrained transitions.
+* Proper disabled states for unavailable actions.
+
+Avoid full-page reloads for ordinary shopping interactions.
+
+Do not use blocking browser alerts for routine application feedback.
+
+Ensure that interactions remain predictable and that the interface never appears frozen during network operations.
+
+6. Mobile Shopping Experience
+
+The mobile interface must receive the same design attention as the desktop interface.
+
+Design for customers shopping on smartphones, including users with limited screen space or slower internet connections.
+
+Prioritize:
+
+* Compact and intuitive navigation.
+* Accessible product search.
+* Easy-to-use category browsing.
+* Readable product information.
+* Comfortable touch targets.
+* Clear cart and checkout actions.
+* Mobile-friendly forms.
+* Efficient image loading.
+
+Use a mobile navigation pattern appropriate for the application.
+
+If a bottom navigation bar is introduced, ensure that it serves a clear purpose and does not compete with the primary shopping actions.
+
+The mobile checkout must be particularly simple and reliable.
+
+Do not merely shrink the desktop layout.
+
+7. Checkout UX
+
+The checkout experience must minimize unnecessary friction.
+
+Use a clear, well-structured checkout flow that collects only the information required to complete an order.
+
+Customers must always understand:
+
+* What they are purchasing.
+* How much they are paying.
+* What delivery or collection options are available.
+* Which payment method they have selected.
+* Whether their order has been successfully submitted.
+
+Keep the order summary accessible throughout checkout.
+
+Preserve cart contents when customers navigate away or refresh the page.
+
+Clearly distinguish between an order being submitted, confirmed, paid, and fulfilled.
+
+Prevent accidental duplicate submissions and provide helpful feedback when an operation fails.
+
+8. Professional Administrative Interface
+
+The administrative dashboard is part of the product and must not be treated as an afterthought.
+
+Design a professional operational interface for staff managing products, stock, and orders.
+
+Use:
+
+* Clear navigation.
+* Well-organized data tables.
+* Useful search and filtering.
+* Efficient product editing.
+* Clear order status indicators.
+* Contextual actions.
+* Confirmation for destructive operations.
+* Meaningful dashboard metrics.
+* Responsive layouts for smaller screens.
+
+Prioritize information density and operational efficiency without making the dashboard visually overwhelming.
+
+The interface should help staff complete routine business tasks quickly.
+
+9. Frontend Engineering Standards
+
+Use modern, maintainable frontend practices.
+
+The application must include:
+
+* Reusable design-system components.
+* Consistent form handling and validation.
+* Clear separation between UI components and business logic.
+* Proper loading, error, empty, and success states.
+* Accessible semantic HTML.
+* Keyboard navigation.
+* Appropriate focus management.
+* Responsive image handling.
+* Efficient rendering and asset loading.
+
+Use established libraries where they genuinely improve reliability or maintainability.
+
+Avoid unnecessary dependencies and do not introduce complexity simply to appear modern.
+
+The frontend must consume real backend functionality and remain consistent with the application’s actual data.
+
+Do not use hardcoded product data, simulated checkout behavior, or placeholder interactions as substitutes for implemented features.
+
+10. Visual Quality Verification
+
+Before considering the frontend complete, inspect the actual application at desktop and mobile sizes.
+
+Evaluate the following:
+
+* Does the interface look like a professional automotive retailer?
+* Is the product catalog visually compelling and easy to navigate?
+* Can customers quickly find a specific part?
+* Are product images presented consistently?
+* Is the shopping cart easy to access?
+* Is checkout clear and frictionless?
+* Does the mobile interface feel deliberately designed?
+* Are all interactive elements functional?
+* Are there any awkward layouts, excessive whitespace, inconsistent spacing, or broken responsive states?
+
+Fix visual and usability problems discovered during this review.
+
+Do not declare the frontend complete simply because the pages render without errors.
+
+Final requirement: Deliver a polished, commercially credible automotive e-commerce experience with the visual quality, interaction design, and usability expected from a professionally developed online retail platform. Every design decision must support the actual shopping and business-management workflows.
+
+STRICT FRONTEND & UX REQUIREMENTS
+
+This addendum is mandatory. It supplements the main application requirements and takes priority over any default frontend design decisions.
+
+The objective is to deliver a premium automotive e-commerce experience that feels professionally designed, commercially credible, and carefully engineered—not a generic AI-generated storefront.
+
+1. Establish a Distinct Visual Identity
+
+Design the entire customer-facing application around the identity of RANG ATV/AUTO PART/V ACCESSORIES.
+
+Before implementing the interface, establish a cohesive visual system covering:
+
+* Typography and font hierarchy.
+* Brand colors and neutral surfaces.
+* Spacing and layout proportions.
+* Border treatments, shadows, and radii.
+* Iconography and interaction states.
+* Product image presentation.
+* Buttons, forms, cards, and navigation.
+
+The design should communicate automotive expertise, reliability, and confidence.
+
+Avoid generic blue-and-white SaaS styling, oversized gradient backgrounds, excessive rounded cards, unnecessary decorative elements, and template-like layouts.
+
+Use a restrained, premium visual language appropriate for an established automotive parts retailer.
+
+2. Build a Real E-Commerce Interface, Not a Landing Page
+
+The primary experience is product discovery and purchasing.
+
+The homepage must be designed around the customer’s shopping journey rather than simply presenting a collection of promotional sections.
+
+Implement a carefully structured storefront with:
+
+* A professional header and shopping navigation.
+* A prominent, functional product search.
+* Clearly organized automotive product categories.
+* A purposeful promotional or featured-product area.
+* Product collections that help customers discover relevant items.
+* A visually clear product catalog.
+* Consistent product cards with useful information.
+* A persistent, accessible shopping cart entry point.
+
+The homepage must feel complete without becoming unnecessarily long or cluttered.
+
+Every section must serve a clear commercial or navigational purpose.
+
+3. Automotive Product Discovery
+
+Automotive parts shopping has different requirements from ordinary retail.
+
+Customers may know the exact part they need, or they may only know their vehicle.
+
+Design the product discovery experience around both situations.
+
+Implement:
+
+* Fast product search with useful suggestions.
+* Search by product name, SKU, brand, or relevant specifications.
+* Category-based browsing.
+* Useful filters for price, brand, availability, and other relevant attributes.
+* Sorting by price, relevance, and newest products.
+* A vehicle compatibility selector where appropriate.
+
+The vehicle selector should allow customers to identify their vehicle using relevant information such as make, model, and year.
+
+When compatibility information is available, clearly communicate whether a product fits the selected vehicle.
+
+Never imply compatibility when the information has not been verified.
+
+Search, filtering, and category navigation must work with actual backend data.
+
+Do not implement decorative search bars or filters that do nothing.
+
+4. Product Cards and Product Detail Experience
+
+Product presentation must be designed specifically for automotive parts and accessories.
+
+Product cards should prioritize:
+
+* Clear product imagery.
+* Product name.
+* Brand or manufacturer where available.
+* Price and applicable sale price.
+* Stock availability.
+* Relevant compatibility information.
+* A clear action for viewing or purchasing the product.
+
+Avoid excessive information that makes the catalog difficult to scan.
+
+The product detail page must provide a strong purchasing experience.
+
+Include:
+
+* A high-quality image gallery with zoom or full-image viewing.
+* Product name, brand, SKU, and price.
+* Stock availability.
+* Specifications and product description.
+* Vehicle compatibility information where applicable.
+* Quantity selection.
+* Add-to-cart functionality.
+* Delivery or collection information where available.
+* Relevant related products.
+
+The purchase action should be visually prominent without overwhelming the page.
+
+Ensure that the layout remains practical for products with long names, multiple specifications, or several images.
+
+5. Modern Interaction Design
+
+Use modern frontend interaction patterns that improve usability without adding unnecessary complexity.
+
+Implement:
+
+* Immediate visual feedback for cart actions.
+* Loading states for asynchronous operations.
+* Skeleton loading where appropriate.
+* Clear empty states.
+* Helpful validation messages.
+* Success and error notifications.
+* Optimistic updates only where safe.
+* Smooth but restrained transitions.
+* Proper disabled states for unavailable actions.
+
+Avoid full-page reloads for ordinary shopping interactions.
+
+Do not use blocking browser alerts for routine application feedback.
+
+Ensure that interactions remain predictable and that the interface never appears frozen during network operations.
+
+6. Mobile Shopping Experience
+
+The mobile interface must receive the same design attention as the desktop interface.
+
+Design for customers shopping on smartphones, including users with limited screen space or slower internet connections.
+
+Prioritize:
+
+* Compact and intuitive navigation.
+* Accessible product search.
+* Easy-to-use category browsing.
+* Readable product information.
+* Comfortable touch targets.
+* Clear cart and checkout actions.
+* Mobile-friendly forms.
+* Efficient image loading.
+
+Use a mobile navigation pattern appropriate for the application.
+
+If a bottom navigation bar is introduced, ensure that it serves a clear purpose and does not compete with the primary shopping actions.
+
+The mobile checkout must be particularly simple and reliable.
+
+Do not merely shrink the desktop layout.
+
+7. Checkout UX
+
+The checkout experience must minimize unnecessary friction.
+
+Use a clear, well-structured checkout flow that collects only the information required to complete an order.
+
+Customers must always understand:
+
+* What they are purchasing.
+* How much they are paying.
+* What delivery or collection options are available.
+* Which payment method they have selected.
+* Whether their order has been successfully submitted.
+
+Keep the order summary accessible throughout checkout.
+
+Preserve cart contents when customers navigate away or refresh the page.
+
+Clearly distinguish between an order being submitted, confirmed, paid, and fulfilled.
+
+Prevent accidental duplicate submissions and provide helpful feedback when an operation fails.
+
+8. Professional Administrative Interface
+
+The administrative dashboard is part of the product and must not be treated as an afterthought.
+
+Design a professional operational interface for staff managing products, stock, and orders.
+
+Use:
+
+* Clear navigation.
+* Well-organized data tables.
+* Useful search and filtering.
+* Efficient product editing.
+* Clear order status indicators.
+* Contextual actions.
+* Confirmation for destructive operations.
+* Meaningful dashboard metrics.
+* Responsive layouts for smaller screens.
+
+Prioritize information density and operational efficiency without making the dashboard visually overwhelming.
+
+The interface should help staff complete routine business tasks quickly.
+
+9. Frontend Engineering Standards
+
+Use modern, maintainable frontend practices.
+
+The application must include:
+
+* Reusable design-system components.
+* Consistent form handling and validation.
+* Clear separation between UI components and business logic.
+* Proper loading, error, empty, and success states.
+* Accessible semantic HTML.
+* Keyboard navigation.
+* Appropriate focus management.
+* Responsive image handling.
+* Efficient rendering and asset loading.
+
+Use established libraries where they genuinely improve reliability or maintainability.
+
+Avoid unnecessary dependencies and do not introduce complexity simply to appear modern.
+
+The frontend must consume real backend functionality and remain consistent with the application’s actual data.
+
+Do not use hardcoded product data, simulated checkout behavior, or placeholder interactions as substitutes for implemented features.
+
+10. Visual Quality Verification
+
+Before considering the frontend complete, inspect the actual application at desktop and mobile sizes.
+
+Evaluate the following:
+
+* Does the interface look like a professional automotive retailer?
+* Is the product catalog visually compelling and easy to navigate?
+* Can customers quickly find a specific part?
+* Are product images presented consistently?
+* Is the shopping cart easy to access?
+* Is checkout clear and frictionless?
+* Does the mobile interface feel deliberately designed?
+* Are all interactive elements functional?
+* Are there any awkward layouts, excessive whitespace, inconsistent spacing, or broken responsive states?
+
+Fix visual and usability problems discovered during this review.
+
+Do not declare the frontend complete simply because the pages render without errors.
+
+Final requirement: Deliver a polished, commercially credible automotive e-commerce experience with the visual quality, interaction design, and usability expected from a professionally developed online retail platform. Every design decision must support the actual shopping and business-management workflows.
