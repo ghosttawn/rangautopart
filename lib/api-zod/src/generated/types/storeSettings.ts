@@ -11,7 +11,6 @@ export interface StoreSettings {
   currency: string | null;
   currencyConfigured: boolean;
   deliveryFeeMinor: number;
-  deliveryRegions: string[];
   cashOnDeliveryEnabled: boolean;
   onlinePaymentsEnabled: boolean;
   storeName: string;

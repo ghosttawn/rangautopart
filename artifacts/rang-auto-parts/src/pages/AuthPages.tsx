@@ -17,7 +17,7 @@ function clearPrivateCache(client: ReturnType<typeof useQueryClient>) {
 function AuthFrame({ eyebrow, title, detail, children }: { eyebrow: string; title: string; detail: string; children: ReactNode }) {
   return <main className="auth-page">
     <div className="auth-side">
-      <Link href="/" className="brand"><span className="brand-mark"><Wrench size={18}/></span><span className="brand-name">RANG</span></Link>
+      <Link href="/" className="brand"><span className="brand-mark"><Wrench size={18}/></span><span className="brand-name">RANG AUTO PARTS</span></Link>
       <div className="auth-side-copy"><span className="eyebrow">Parts for the work ahead</span><p>Good parts. Clear details. No guesswork about what you are buying.</p></div>
       <div className="auth-side-foot eyebrow">ATV · AUTO · MOTORCYCLE</div>
     </div>

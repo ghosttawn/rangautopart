@@ -26,7 +26,6 @@ import {
 import { verifyPassword } from "../lib/auth";
 import {
   hasCompleteDeliveryDetails,
-  isDeliveryAllowed,
   normalizeCheckoutDetails,
 } from "../lib/delivery";
 import { HttpError, resolveCurrentUser } from "../middlewares/auth";
@@ -84,14 +83,6 @@ router.post("/checkout", async (req, res): Promise<void> => {
         "Cash on delivery is not currently available.",
       );
     }
-    if (!isDeliveryAllowed(settings.deliveryRegions, input.country, input.region)) {
-      throw new HttpError(
-        400,
-        "DELIVERY_REGION_UNAVAILABLE",
-        "The store has not confirmed delivery for this country or region. Contact the parts desk before placing the order.",
-      );
-    }
-
     const cartItems = await tx
       .select()
       .from(cartItemsTable)

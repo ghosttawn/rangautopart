@@ -1150,14 +1150,11 @@ components:
           items: { $ref: "#/components/schemas/ProductCard" }
     StoreSettings:
       type: object
-      required: [currency, currencyConfigured, deliveryFeeMinor, deliveryRegions, cashOnDeliveryEnabled, onlinePaymentsEnabled, storeName, heroTitle, heroHighlight, heroDescription, heroImageUrl, promotionalTitle, promotionalBody, promotionalActionLabel, promotionalUrl]
+      required: [currency, currencyConfigured, deliveryFeeMinor, cashOnDeliveryEnabled, onlinePaymentsEnabled, storeName, heroTitle, heroHighlight, heroDescription, heroImageUrl, promotionalTitle, promotionalBody, promotionalActionLabel, promotionalUrl]
       properties:
         currency: { type: ["string", "null"] }
         currencyConfigured: { type: boolean }
         deliveryFeeMinor: { type: integer }
-        deliveryRegions:
-          type: array
-          items: { type: string }
         cashOnDeliveryEnabled: { type: boolean }
         onlinePaymentsEnabled: { type: boolean }
         storeName: { type: string }
@@ -1188,9 +1185,6 @@ components:
       properties:
         currency: { type: string, pattern: "^[A-Z]{3}$" }
         deliveryFeeMinor: { type: integer, minimum: 0 }
-        deliveryRegions:
-          type: array
-          items: { type: string }
         cashOnDeliveryEnabled: { type: boolean }
         onlinePaymentsEnabled: { type: boolean, const: false }
         storeName: { type: string, minLength: 1, maxLength: 140 }

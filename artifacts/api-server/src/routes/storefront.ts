@@ -99,7 +99,7 @@ router.get("/storefront", async (_req, res): Promise<void> => {
     categoryDtos(categories),
     productCards(featuredProducts),
   ]);
-  res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60").json(
+  res.set("Cache-Control", "no-store").json(
     GetStorefrontResponse.parse({
       settings: settingsDto(settings),
       categories: categoryData,
@@ -404,7 +404,9 @@ router.get("/product-images/:imageId", async (req, res): Promise<void> => {
 router.get("/cart", async (req, res): Promise<void> => {
   const user = await resolveCurrentUser(req);
   const { cartId } = await getOrCreateCart(req, res, user);
-  res.json(GetCartResponse.parse(await cartDto(cartId)));
+  res.set("Cache-Control", "private, no-store").json(
+    GetCartResponse.parse(await cartDto(cartId)),
+  );
 });
 
 router.post("/cart/items", async (req, res): Promise<void> => {

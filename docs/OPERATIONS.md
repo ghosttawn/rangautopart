@@ -160,8 +160,13 @@ the complete payment flow has been tested.
 - Staff order and product operations require a database-backed `admin` or
   `staff` role. Initial admin access is provisioned using the guarded
   development-only command above; there is no public admin-creation endpoint.
-- Delivery regions and fee, store contact details, and cash-on-delivery
-  availability are managed in the admin settings.
+- Delivery fee, store currency, contact details, and cash-on-delivery
+  availability are managed in the admin settings. Checkout accepts valid
+  destination details from any country; staff confirm delivery arrangements
+  after an order request is submitted.
+- Changing the store currency does not convert existing catalog prices or
+  delivery fees. Review those amounts manually; each order keeps the currency
+  recorded when it was placed.
 - Product images are limited to JPEG, PNG, or WebP, up to 5 MB per upload.
 - Vehicle compatibility is shown as verified only when the catalog contains a
   verified fitment record; otherwise customers are told to confirm with staff.

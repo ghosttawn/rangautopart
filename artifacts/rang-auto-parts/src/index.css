@@ -136,7 +136,7 @@
 .header-inner { display: flex; align-items: center; min-height: 74px; gap: 34px; }
 .brand { color: hsl(var(--foreground)); text-decoration: none; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; background: hsl(var(--primary)); color: #f8f5e9; clip-path: polygon(0 0,100% 0,100% 77%,50% 100%,0 77%); }
-.brand-name { font: 700 25px 'Space Grotesk', sans-serif; letter-spacing: -.07em; }
+.brand-name { font: 700 21px 'Space Grotesk', sans-serif; letter-spacing: -.055em; white-space: nowrap; }
 .nav-links { display: flex; align-items: center; gap: 24px; flex: 1; }
 .nav-links a,.header-action { text-decoration: none; color: hsl(var(--foreground)); font-size: 12px; font-weight: 800; }
 .header-action { background: none; border: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
@@ -349,6 +349,21 @@
 .admin-record-heading { display:flex; justify-content:space-between; align-items:center; gap:14px; }
 .admin-record-heading h2 { margin:5px 0 0; font-size:25px; }
 .editor-form { margin:18px 0 0; }
+.attribute-editor { min-width:0; display:grid; gap:13px; padding:16px; border:1px solid hsl(var(--border)); background:hsl(var(--background)); }
+.attribute-editor-heading { display:flex; justify-content:space-between; align-items:center; gap:14px; }
+.attribute-editor-heading h3 { margin:0 0 5px; font:700 17px 'Space Grotesk',sans-serif; }
+.attribute-editor-heading p,.attribute-note { margin:0; color:hsl(var(--muted-foreground)); font-size:12px; line-height:1.55; }
+.attribute-editor-heading .btn { flex-shrink:0; }
+.attribute-row-stack { display:grid; gap:10px; }
+.attribute-row { min-width:0; display:grid; align-items:end; gap:10px; padding:13px; border:1px solid hsl(var(--border)); background:hsl(var(--card)); }
+.specification-row { grid-template-columns:minmax(120px,1fr) minmax(110px,.8fr) minmax(170px,1.7fr) auto; }
+.fitment-row { grid-template-columns:minmax(110px,1fr) minmax(110px,1fr) minmax(90px,.65fr) minmax(90px,.65fr) auto auto; }
+.attribute-row > * { min-width:0; }
+.attribute-remove { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding-inline:10px; }
+.attribute-check { display:flex; align-items:center; gap:7px; min-height:44px; font-size:12px; font-weight:800; white-space:nowrap; }
+.attribute-check input { width:17px; height:17px; accent-color:hsl(var(--primary)); }
+.attribute-empty { margin:0; padding:14px; border:1px dashed hsl(var(--border)); color:hsl(var(--muted-foreground)); font-size:12px; line-height:1.6; }
+.attribute-note { margin-top:-4px; }
 .row-actions { display:flex; gap:7px; flex-wrap:wrap; }
 .row-actions .btn { min-height:35px; padding-inline:10px; }
 .image-upload { width:96px; height:96px; display:grid; place-items:center; border:1px dashed hsl(var(--primary)); color:hsl(var(--primary)); background:hsl(var(--background)); font-size:11px; font-weight:800; text-align:center; cursor:pointer; }
@@ -374,6 +389,10 @@
 @media(max-width:900px) {
   .quick-search { width:175px; }
   .admin-order-controls { grid-template-columns:1fr; }
+  .specification-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .fitment-row { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .attribute-remove { justify-self:start; }
+  .admin-sidebar .brand-name { max-width:120px; white-space:normal; line-height:1.05; font-size:17px; }
 }
 @media(max-width:700px) {
   .quick-search { width:38px; }
@@ -389,6 +408,10 @@
   .staff-note-form { align-items:stretch; flex-direction:column; }
   .staff-note-form .btn { width:100%; }
   .admin-record { padding:13px; }
+  .attribute-editor { padding:12px; }
+  .attribute-editor-heading { align-items:stretch; flex-direction:column; }
+  .attribute-editor-heading .btn { width:100%; }
+  .specification-row,.fitment-row { grid-template-columns:1fr; }
   .image-upload { width:84px; height:84px; }
   .fitment-grid,.order-card-grid { grid-template-columns:1fr; }
   .search-suggest { max-height:60vh; overflow:auto; }
@@ -404,7 +427,7 @@
 @media(max-width:380px) {
   .shell { width:calc(100% - 24px); }
   .header-inner { gap:6px; }
-  .brand-name { font-size:22px; }
+  .brand-name { max-width:112px; white-space:normal; line-height:.95; font-size:17px; }
   .quick-search { width:34px; }
   .product-grid { gap:8px; }
   .product-card .product-image { height:138px; }

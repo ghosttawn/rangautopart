@@ -61,6 +61,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { HttpError, requireUser } from "../middlewares/auth";
+import { isSupportedCurrencyCode } from "../lib/currency";
 import {
   categoryDto,
   categoryDtos,
@@ -961,7 +962,9 @@ router.patch("/admin/support/messages/:messageId", async (req, res): Promise<voi
 });
 
 router.get("/admin/settings", adminOnly, async (_req, res): Promise<void> => {
-  res.json(GetAdminSettingsResponse.parse(settingsDto(await getSettings())));
+  res.set("Cache-Control", "private, no-store").json(
+    GetAdminSettingsResponse.parse(settingsDto(await getSettings())),
+  );
 });
 
 router.post(
@@ -1015,7 +1018,18 @@ router.patch("/admin/settings", adminOnly, async (req, res): Promise<void> => {
     );
     return;
   }
-  const [existing] = await db.select().from(storeSettingsTable).limit(1);
+  if (
+    parsed.data.currency !== undefined &&
+    !isSupportedCurrencyCode(parsed.data.currency)
+  ) {
+    res.status(400).json(
+      errorResponse(
+        "Use a supported three-letter ISO 4217 currency code.",
+        "INVALID_CURRENCY",
+      ),
+    );
+    return;
+  }
   const values = {
     ...(parsed.data.storeName !== undefined
       ? { storeName: parsed.data.storeName.trim() }
@@ -1023,9 +1037,6 @@ router.patch("/admin/settings", adminOnly, async (req, res): Promise<void> => {
     ...(parsed.data.currency !== undefined ? { currency: parsed.data.currency } : {}),
     ...(parsed.data.deliveryFeeMinor !== undefined
       ? { deliveryFeeMinor: parsed.data.deliveryFeeMinor }
-      : {}),
-    ...(parsed.data.deliveryRegions !== undefined
-      ? { deliveryRegions: parsed.data.deliveryRegions.map((region) => region.trim()) }
       : {}),
     ...(parsed.data.cashOnDeliveryEnabled !== undefined
       ? { cashOnDeliveryEnabled: parsed.data.cashOnDeliveryEnabled }
@@ -1060,18 +1071,15 @@ router.patch("/admin/settings", adminOnly, async (req, res): Promise<void> => {
       : {}),
     updatedAt: new Date(),
   };
-  const [settings] = existing
-    ? await db
-        .update(storeSettingsTable)
-        .set(values)
-        .where(eq(storeSettingsTable.id, existing.id))
-        .returning()
-    : await db
-        .insert(storeSettingsTable)
-        .values({ id: 1, ...values })
-        .returning();
+  const [settings] = await db
+    .insert(storeSettingsTable)
+    .values({ id: 1, ...values })
+    .onConflictDoUpdate({ target: storeSettingsTable.id, set: values })
+    .returning();
   const dto = settingsDto(settings!);
-  res.json(UpdateAdminSettingsResponse.parse(dto));
+  res.set("Cache-Control", "private, no-store").json(
+    UpdateAdminSettingsResponse.parse(dto),
+  );
 });
 
 export default router;

@@ -26,6 +26,7 @@ import type {
   StoreSettings,
   User,
 } from "@workspace/db";
+import { isSupportedCurrencyCode } from "./currency";
 
 const DEFAULT_SETTINGS: StoreSettings = {
   id: 1,
@@ -61,9 +62,8 @@ export function settingsDto(settings: StoreSettings) {
   return {
     storeName: settings.storeName,
     currency: settings.currency,
-    currencyConfigured: /^[A-Z]{3}$/.test(settings.currency),
+    currencyConfigured: isSupportedCurrencyCode(settings.currency),
     deliveryFeeMinor: settings.deliveryFeeMinor,
-    deliveryRegions: settings.deliveryRegions,
     cashOnDeliveryEnabled: settings.cashOnDeliveryEnabled,
     onlinePaymentsEnabled: false,
     supportEmail: settings.supportEmail,

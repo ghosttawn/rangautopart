@@ -11,7 +11,6 @@ export interface StoreSettingsInput {
   currency?: string;
   /** @minimum 0 */
   deliveryFeeMinor?: number;
-  deliveryRegions?: string[];
   cashOnDeliveryEnabled?: boolean;
   onlinePaymentsEnabled?: false;
   /**

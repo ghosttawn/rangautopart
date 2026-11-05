@@ -376,7 +376,6 @@ export interface StoreSettings {
   currency: string | null;
   currencyConfigured: boolean;
   deliveryFeeMinor: number;
-  deliveryRegions: string[];
   cashOnDeliveryEnabled: boolean;
   onlinePaymentsEnabled: boolean;
   storeName: string;
@@ -424,7 +423,6 @@ export interface StoreSettingsInput {
   currency?: string;
   /** @minimum 0 */
   deliveryFeeMinor?: number;
-  deliveryRegions?: string[];
   cashOnDeliveryEnabled?: boolean;
   onlinePaymentsEnabled?: false;
   /**

@@ -7,7 +7,7 @@ import type { ProductCard } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function Brand() {
-  return <Link href="/" className="brand" data-testid="link-brand"><span className="brand-mark"><Wrench size={18} /></span><span className="brand-name">RANG</span></Link>;
+  return <Link href="/" className="brand" data-testid="link-brand"><span className="brand-mark"><Wrench size={18} /></span><span className="brand-name">RANG AUTO PARTS</span></Link>;
 }
 
 export function Header() {

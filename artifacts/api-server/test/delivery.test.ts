@@ -3,7 +3,6 @@ import test from "node:test";
 import { SubmitOrderBody } from "@workspace/api-zod";
 import {
   hasCompleteDeliveryDetails,
-  isDeliveryAllowed,
   normalizeCheckoutDetails,
 } from "../src/lib/delivery.ts";
 
@@ -23,7 +22,7 @@ test("checkout trims international address fields before validation", () => {
   assert.equal(hasCompleteDeliveryDetails(normalized), true);
 });
 
-test("checkout accepts countries whose valid addresses do not use a state or region", () => {
+test("checkout accepts international countries without requiring a state or region", () => {
   const checkout = {
     idempotencyKey: "00000000-0000-4000-8000-000000000001",
     name: "Mei Lin",
@@ -48,8 +47,6 @@ test("checkout accepts countries whose valid addresses do not use a state or reg
 
   assert.equal(normalized.region, "");
   assert.equal(hasCompleteDeliveryDetails(normalized), true);
-  assert.equal(isDeliveryAllowed([], normalized.country, normalized.region), true);
-  assert.equal(isDeliveryAllowed(["Singapore"], normalized.country, normalized.region), true);
 });
 
 test("checkout rejects address fields that become too short after trimming", () => {
@@ -66,18 +63,17 @@ test("checkout rejects address fields that become too short after trimming", () 
   assert.equal(hasCompleteDeliveryDetails(normalized), false);
 });
 
-test("empty delivery rules accept international order requests for confirmation", () => {
-  assert.equal(isDeliveryAllowed([], "Cameroon", "Littoral"), true);
-  assert.equal(isDeliveryAllowed([], "Ghana", "Ashanti"), true);
-});
-
-test("configured country, region, and country-region rules match case-insensitively", () => {
-  const rules = [" Ghana ", "Littoral", "Cameroon/Douala", "Nigeria:Abuja"];
-
-  assert.equal(isDeliveryAllowed(rules, "GHANA", "Ashanti"), true);
-  assert.equal(isDeliveryAllowed(rules, "Cameroon", "Littoral"), true);
-  assert.equal(isDeliveryAllowed(rules, "cameroon", "douala"), true);
-  assert.equal(isDeliveryAllowed(rules, "Nigeria", "ABUJA"), true);
-  assert.equal(isDeliveryAllowed(rules, "Ghana", "Greater Accra"), true);
-  assert.equal(isDeliveryAllowed(rules, "Senegal", "Dakar"), false);
+test("valid destinations in different countries are not restricted by country", () => {
+  for (const country of ["Cameroon", "United States", "United Kingdom", "France", "Japan"]) {
+    const checkout = SubmitOrderBody.parse({
+      idempotencyKey: "00000000-0000-4000-8000-000000000002",
+      name: "Alex Morgan",
+      email: "alex@example.com",
+      phone: "+1 202 555 0100",
+      address: "12 Market Street",
+      city: "Central",
+      country,
+    });
+    assert.equal(hasCompleteDeliveryDetails(normalizeCheckoutDetails(checkout)), true, country);
+  }
 });

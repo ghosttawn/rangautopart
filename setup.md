@@ -174,18 +174,22 @@ Use this order:
    product browsing and direct navigation to `/catalog` and `/admin/login`.
 6. Provision the administrator using the guarded procedure below.
 7. Sign in at `/admin/login` and open **Settings**. Set the store name, currency,
-   delivery fee, support email and/or phone, and the intended delivery policy.
-   Publish a staffed support channel before launch.
+   delivery fee, and support email and/or phone. Publish a staffed support
+   channel before launch.
 
-With no delivery regions configured, checkout accepts international order
-requests and staff must confirm delivery before dispatch. An accepted order
-request is not a promise that a carrier serves the address: no carrier, tax, or
-online-payment provider is configured. If the business has geographic limits,
-enter confirmed country names/codes or region names in **Supported delivery
-countries or regions**. Use `Country/Region` for an unambiguous regional rule.
-The state/region field at checkout is optional for addresses that do not use
-one. The configured delivery fee is one flat amount; country-specific quotes
-and taxes are not calculated.
+Checkout accepts valid destination details from any country. Country and address
+fields are saved with the order; they are not used as an eligibility rule. An
+accepted order request is not a promise that a carrier serves the address: the
+parts desk must confirm delivery before dispatch. No carrier, tax, or
+online-payment provider is configured. The state/region field at checkout is
+optional. The configured delivery fee is one flat amount; country-specific
+quotes and taxes are not calculated.
+
+Changing the store currency changes how current prices are labeled and how new
+orders record their currency. It does not convert product prices or delivery
+fees using exchange rates. Review catalog prices and the delivery fee manually
+after changing currency; existing orders retain the currency recorded when
+they were placed.
 
 The contact form submits feedback to the authenticated staff support inbox.
 Configured email and phone are optional `mailto:` and `tel:` links; messages are
@@ -301,9 +305,8 @@ cannot replace a password on an existing account.
   Static Site rewrite to `/index.html`.
 - If a migration fails, stop and inspect the migration output and current
   schema; do not use `push-force` or drop production tables to recover.
-- If an order is declined for a delivery region, review **Settings**. A blank
-  list accepts global order requests; a populated list is an explicit
-  country/region allowlist. The parts desk must still confirm actual delivery.
+- Checkout does not use a country or region allowlist. The parts desk confirms
+  actual delivery arrangements after an order request is submitted.
 - If the support inbox has no new message, verify the contact form's success
   state and `/api/support/messages` request. The form stores messages in the
   database; it does not send an email notification.

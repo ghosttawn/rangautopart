@@ -34,22 +34,3 @@ export function hasCompleteDeliveryDetails(input: CheckoutContactAndAddress): bo
     input.country.length >= 2
   );
 }
-
-export function isDeliveryAllowed(
-  configuredRules: readonly string[],
-  countryValue: string,
-  regionValue: string,
-): boolean {
-  if (configuredRules.length === 0) return true;
-  const country = countryValue.trim().toLocaleLowerCase();
-  const region = regionValue.trim().toLocaleLowerCase();
-  return configuredRules.some((entry) => {
-    const rule = entry.trim().toLocaleLowerCase();
-    return (
-      rule === country ||
-      rule === region ||
-      rule === `${country}/${region}` ||
-      rule === `${country}:${region}`
-    );
-  });
-}
