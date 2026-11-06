@@ -17,6 +17,57 @@ The repository root is the monorepo root. The API is in
 `artifacts/rang-auto-parts`; database schema and migrations are in `lib/db`.
 Use the repository root as the Render root directory.
 
+### Prepare and connect GitHub
+
+1. Create or select the **private** GitHub repository that should hold this
+   project. Keep it empty when creating it; do not add a second README, license,
+   or `.gitignore` that could create an unrelated first commit.
+2. In Replit, open the Repositories page at
+   <https://replit.com/repos>, connect the intended GitHub account, and select
+   the correct repository for this project. Replit's GitHub connection uses
+   account authorization; do not paste a token into chat or project files.
+3. Before committing, review `git status --short`. The project `.gitignore`
+   keeps environment files, local databases, and non-demo uploaded attachments
+   out of Git. Keep only the approved `attached_assets/generated_images`
+   catalog fixtures if seed imagery is needed.
+4. Commit the project from its repository root and push the current branch. In
+   the Replit Git panel, confirm the repository owner/name and branch before
+   pressing **Push**. For a command-line push, use the connected repository as
+   `origin`, then run `git push -u origin main` for this project's current
+   branch. Do not force-push or replace repository history to resolve an
+   unrelated-history warning; stop and compare the two histories first.
+5. Verify the push by checking that the GitHub repository shows the latest
+   commit and that `pnpm-lock.yaml`, the migration SQL/metadata, seed script,
+   setup guide, `.env.example`, and application source are present.
+
+#### If a Personal Access Token is required
+
+Prefer Replit's authorized GitHub connection above. If the Git workflow
+specifically requires a Personal Access Token (PAT):
+
+1. On GitHub, open **Settings → Developer settings → Personal access tokens →
+   Fine-grained tokens**, or go directly to
+   <https://github.com/settings/personal-access-tokens/new>.
+2. Choose the correct resource owner, set repository access to **Only select
+   repositories**, and select this project's repository.
+3. Grant only the repository permission **Contents: Read and write**. GitHub
+   supplies the required **Metadata: Read-only** permission. Do not grant
+   organization administration, workflows, or other permissions for a normal
+   source push. Set an expiry and follow any organization approval/SSO policy.
+4. Copy the generated token once. In Replit's **Secrets** pane, create the
+   secret `GIT_URL` with the credential URL value
+   `https://<github-username>:<token>@github.com/<owner>/<repository>.git`.
+   Use the Secrets pane's value field only; never put this URL in source code,
+   `.env.example`, a committed Git remote, a screenshot, or chat. Remove or
+   rotate this secret after the push if it is no longer needed.
+5. Select the intended repository in Replit and push. Verify the new commit on
+   GitHub. If authentication fails, check repository selection, token expiry,
+   `Contents: Read and write`, and any organization approval; do not broaden
+   permissions without identifying the missing permission.
+
+The GitHub account/repository must be chosen and authorized by the owner. No
+GitHub repository is assumed or claimed to be connected by this guide.
+
 ## 2. Create the Neon database
 
 1. Create a Neon project and database in the region closest to the Render
@@ -153,10 +204,22 @@ domains in the target browsers. Do not put `DATABASE_URL`, a password, or any
 other private value in a `VITE_` variable: Vite embeds those values in public
 JavaScript.
 
-Product, category, and homepage uploads are stored in PostgreSQL, not on the
-Web Service's temporary filesystem. No persistent Render disk or object-storage
-service is required for these existing uploads. Public catalog images are
-cached, while upload validation and the 5 MB limit remain enforced by the API.
+Product, category, and homepage uploads are multipart binary uploads stored as
+raw PostgreSQL `bytea` data, not Base64 text and not files on the Web Service's
+temporary filesystem. The API accepts JPEG, PNG, and WebP, checks the declared
+type against the file signature, and rejects files over 5 MB. The storefront
+also checks type and size before upload. Product images are stored one per
+request; repeat the upload to add views, and remove an image from the product
+editor to delete it. Replacing a category or homepage image updates its stored
+image. A refresh retrieves the bytes from the database-backed image endpoint.
+This matches the existing schema and survives Render restarts and redeploys; no
+Render disk or Replit-only object-storage service is required.
+
+Database-backed images increase Neon storage and backup size as the catalog
+grows. Keep product images optimized before upload and monitor database usage.
+If the catalog grows beyond this modest per-file design, move image bytes to a
+durable provider as a planned migration that preserves the existing image URLs
+or updates all references; do not switch to Render's temporary filesystem.
 
 ## 6. First deployment and configuration
 
@@ -174,8 +237,13 @@ Use this order:
    product browsing and direct navigation to `/catalog` and `/admin/login`.
 6. Provision the administrator using the guarded procedure below.
 7. Sign in at `/admin/login` and open **Settings**. Set the store name, currency,
-   delivery fee, and support email and/or phone. Publish a staffed support
-   channel before launch.
+   delivery fee, and support email and/or phone. If offering WhatsApp inquiries,
+   turn on **Offer WhatsApp as an alternative checkout inquiry** and enter a
+   valid international number with its country code (for example,
+   `+237 690 123 456`). Save the settings and confirm that the WhatsApp option
+   appears in checkout. Customers can still submit a normal in-app order; opening
+   WhatsApp creates no order or payment. Publish a staffed support channel before
+   launch.
 
 Checkout accepts valid destination details from any country. Country and address
 fields are saved with the order; they are not used as an eligibility rule. An
@@ -210,28 +278,27 @@ No real URL, DNS record, or custom domain is assumed in this repository.
 
 ## 7. Environment variables by service
 
-### API Web Service
+Use this table as the source of truth for Render and one-off commands. Do not
+add secrets to `VITE_` variables; those values are embedded in public
+JavaScript.
 
-- `DATABASE_URL` — required secret; Neon PostgreSQL TLS connection string.
-- `FRONTEND_ORIGINS` — required in production; comma-separated exact Static
-  Site origins, without path or trailing slash.
-- `NODE_ENV=production` — enables production behavior and secure session cookies.
-- `PORT` — supplied by Render; the API binds to it.
+| Variable | Service / command | Required? | Secret? | Purpose |
+| --- | --- | --- | --- | --- |
+| `DATABASE_URL` | API, migrations, admin provisioning, development seed | Yes for database access | Yes | Neon PostgreSQL connection string; use TLS and the pooled runtime URL where appropriate. |
+| `FRONTEND_ORIGINS` | API Web Service | Yes in production | No | Exact HTTPS frontend origin(s), comma-separated, with no path. |
+| `FRONTEND_ORIGIN` | API Web Service | Optional legacy alias | No | Legacy single-origin fallback; prefer `FRONTEND_ORIGINS`. |
+| `NODE_ENV` | API Web Service and one-off scripts | Set to `production` on Render | No | Enables production cookie/security behavior and guards production-only admin setup. |
+| `PORT` | API Web Service | Render-supplied | No | Port assigned by Render; the API binds to `0.0.0.0:$PORT`. |
+| `LOG_LEVEL` | API Web Service | Optional | No | Pino log level; defaults to `info`. |
+| `VITE_API_BASE_URL` | Static Site build | Yes for separate Render services | No | Public API origin, without `/api` or a trailing slash. |
+| `VITE_REQUIRE_API_BASE_URL` | Static Site build | Set to `true` for Render | No | Fails the build when the separate API origin is missing or malformed. |
+| `BASE_PATH` | Vite build / Replit workflow | Optional; `/` for Render root | No | Base path for app assets and client routes. |
+| `REPL_ID` | Replit development only | No | No | Enables Replit-only development plugins; Render does not need it. |
+| `RANG_ADMIN_PROVISION_CONFIRM` | One-off administrator provisioning | Yes for that command | No | Must be `production` to confirm the guarded production administrator command; do not save it in Render. |
+| `RANG_DEMO_SEED_CONFIRM` | One-off development seed | Yes for that command | No | Must be `development`; the seed also requires `NODE_ENV=development` and must never target production. |
 
-### Static Site
-
-- `VITE_API_BASE_URL` — public API origin, no `/api` suffix. Required for the
-  Render Static Site + Web Service setup above. It is not secret.
-- `VITE_REQUIRE_API_BASE_URL=true` — makes a missing or malformed API origin
-  fail the Static Site build. It is not secret.
-
-### One-off commands only
-
-- `RANG_ADMIN_PROVISION_CONFIRM=production` — explicit confirmation for the
-  administrator provisioning command; do not save it as a persistent service
-  variable.
-- `RANG_DEMO_SEED_CONFIRM=development` — development-only sample seed
-  confirmation; never use it with production.
+`GIT_URL` is not an application variable. Only create it as a Replit Secret if
+the GitHub PAT procedure above is required, and remove or rotate it when done.
 
 `.env.example` contains placeholders only. `.gitignore` excludes `.env` files
 and local secrets. Do not commit a real connection string, password, or local

@@ -26,12 +26,14 @@ import {
   db,
   productImagesTable,
   productsTable,
+  storeSettingsTable,
   supportMessagesTable,
 } from "@workspace/db";
 import { hasStaffAccess, resolveCurrentUser } from "../middlewares/auth";
 import { HttpError } from "../middlewares/auth";
 import {
   cartDto,
+  categorySummarySelection,
   categoryDtos,
   getOrCreateCart,
   getSettings,
@@ -62,23 +64,29 @@ const supportMessageLimiter = rateLimit({
 });
 
 router.get("/storefront/hero-image", async (_req, res): Promise<void> => {
-  const settings = await getSettings();
-  if (!settings.heroImageData || !settings.heroImageContentType) {
+  const [heroImage] = await db
+    .select({
+      data: storeSettingsTable.heroImageData,
+      contentType: storeSettingsTable.heroImageContentType,
+    })
+    .from(storeSettingsTable)
+    .limit(1);
+  if (!heroImage?.data || !heroImage.contentType) {
     res.status(404).end();
     return;
   }
   res
     .status(200)
-    .type(settings.heroImageContentType)
+    .type(heroImage.contentType)
     .set("Cache-Control", "no-store")
-    .send(settings.heroImageData);
+    .send(heroImage.data);
 });
 
 router.get("/storefront", async (_req, res): Promise<void> => {
   const [settings, categories, featuredProducts] = await Promise.all([
     getSettings(),
     db
-      .select()
+      .select(categorySummarySelection)
       .from(categoriesTable)
       .where(eq(categoriesTable.active, true))
       .orderBy(asc(categoriesTable.name)),
@@ -101,7 +109,7 @@ router.get("/storefront", async (_req, res): Promise<void> => {
   ]);
   res.set("Cache-Control", "no-store").json(
     GetStorefrontResponse.parse({
-      settings: settingsDto(settings),
+      settings: settingsDto(settings, { publicView: true }),
       categories: categoryData,
       featured,
     }),
@@ -145,7 +153,7 @@ router.post("/support/messages", supportMessageLimiter, async (req, res): Promis
 
 router.get("/categories", async (_req, res): Promise<void> => {
   const categories = await db
-    .select()
+    .select(categorySummarySelection)
     .from(categoriesTable)
     .where(eq(categoriesTable.active, true))
     .orderBy(asc(categoriesTable.name));
@@ -303,7 +311,12 @@ router.get("/products/:slug", async (req, res): Promise<void> => {
   const [cards, images, compatibility, relatedProducts] = await Promise.all([
     productCards([product.product]),
     db
-      .select()
+      .select({
+        id: productImagesTable.id,
+        contentType: productImagesTable.contentType,
+        size: productImagesTable.size,
+        altText: productImagesTable.altText,
+      })
       .from(productImagesTable)
       .where(eq(productImagesTable.productId, product.product.id))
       .orderBy(asc(productImagesTable.sortOrder), asc(productImagesTable.createdAt)),

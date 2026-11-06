@@ -1150,7 +1150,7 @@ components:
           items: { $ref: "#/components/schemas/ProductCard" }
     StoreSettings:
       type: object
-      required: [currency, currencyConfigured, deliveryFeeMinor, cashOnDeliveryEnabled, onlinePaymentsEnabled, storeName, heroTitle, heroHighlight, heroDescription, heroImageUrl, promotionalTitle, promotionalBody, promotionalActionLabel, promotionalUrl]
+      required: [currency, currencyConfigured, deliveryFeeMinor, cashOnDeliveryEnabled, onlinePaymentsEnabled, storeName, whatsAppCheckoutEnabled, whatsAppContactNumber, heroTitle, heroHighlight, heroDescription, heroImageUrl, promotionalTitle, promotionalBody, promotionalActionLabel, promotionalUrl]
       properties:
         currency: { type: ["string", "null"] }
         currencyConfigured: { type: boolean }
@@ -1160,6 +1160,8 @@ components:
         storeName: { type: string }
         supportEmail: { type: ["string", "null"] }
         contactPhone: { type: ["string", "null"] }
+        whatsAppCheckoutEnabled: { type: boolean }
+        whatsAppContactNumber: { type: ["string", "null"], maxLength: 32 }
         heroTitle: { type: string }
         heroHighlight: { type: string }
         heroDescription: { type: string }
@@ -1190,6 +1192,8 @@ components:
         storeName: { type: string, minLength: 1, maxLength: 140 }
         supportEmail: { type: ["string", "null"], format: email }
         contactPhone: { type: ["string", "null"], maxLength: 32 }
+        whatsAppCheckoutEnabled: { type: boolean }
+        whatsAppContactNumber: { type: ["string", "null"], minLength: 8, maxLength: 32, pattern: "^[+0-9(). -]+$" }
         heroTitle: { type: string, minLength: 1, maxLength: 80 }
         heroHighlight: { type: string, minLength: 1, maxLength: 100 }
         heroDescription: { type: string, minLength: 1, maxLength: 500 }

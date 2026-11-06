@@ -18,6 +18,12 @@ export interface StoreSettings {
   supportEmail?: string | null;
   /** @nullable */
   contactPhone?: string | null;
+  whatsAppCheckoutEnabled: boolean;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  whatsAppContactNumber: string | null;
   heroTitle: string;
   heroHighlight: string;
   heroDescription: string;

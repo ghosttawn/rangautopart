@@ -150,6 +150,10 @@ export const ChangePasswordResponse = zod.void()
 /**
  * @summary Get store settings and featured products
  */
+export const getStorefrontResponseSettingsWhatsAppContactNumberMax = 32;
+
+
+
 export const GetStorefrontResponse = zod.object({
   "settings": zod.object({
   "currency": zod.string().nullable(),
@@ -160,6 +164,8 @@ export const GetStorefrontResponse = zod.object({
   "storeName": zod.string(),
   "supportEmail": zod.string().nullish(),
   "contactPhone": zod.string().nullish(),
+  "whatsAppCheckoutEnabled": zod.boolean(),
+  "whatsAppContactNumber": zod.string().max(getStorefrontResponseSettingsWhatsAppContactNumberMax).nullable(),
   "heroTitle": zod.string(),
   "heroHighlight": zod.string(),
   "heroDescription": zod.string(),
@@ -1333,6 +1339,10 @@ export const ListAdminCustomersResponse = zod.array(ListAdminCustomersResponseIt
 /**
  * @summary Get store configuration
  */
+export const getAdminSettingsResponseWhatsAppContactNumberMax = 32;
+
+
+
 export const GetAdminSettingsResponse = zod.object({
   "currency": zod.string().nullable(),
   "currencyConfigured": zod.boolean(),
@@ -1342,6 +1352,8 @@ export const GetAdminSettingsResponse = zod.object({
   "storeName": zod.string(),
   "supportEmail": zod.string().nullish(),
   "contactPhone": zod.string().nullish(),
+  "whatsAppCheckoutEnabled": zod.boolean(),
+  "whatsAppContactNumber": zod.string().max(getAdminSettingsResponseWhatsAppContactNumberMax).nullable(),
   "heroTitle": zod.string(),
   "heroHighlight": zod.string(),
   "heroDescription": zod.string(),
@@ -1363,6 +1375,11 @@ export const updateAdminSettingsBodyStoreNameMax = 140;
 
 export const updateAdminSettingsBodyContactPhoneMax = 32;
 
+export const updateAdminSettingsBodyWhatsAppContactNumberMin = 8;
+export const updateAdminSettingsBodyWhatsAppContactNumberMax = 32;
+
+
+export const updateAdminSettingsBodyWhatsAppContactNumberRegExp = new RegExp('^[+0-9(). -]+$');
 export const updateAdminSettingsBodyHeroTitleMax = 80;
 
 export const updateAdminSettingsBodyHeroHighlightMax = 100;
@@ -1386,6 +1403,8 @@ export const UpdateAdminSettingsBody = zod.object({
   "storeName": zod.string().min(1).max(updateAdminSettingsBodyStoreNameMax).optional(),
   "supportEmail": zod.string().email().nullish(),
   "contactPhone": zod.string().max(updateAdminSettingsBodyContactPhoneMax).nullish(),
+  "whatsAppCheckoutEnabled": zod.boolean().optional(),
+  "whatsAppContactNumber": zod.string().min(updateAdminSettingsBodyWhatsAppContactNumberMin).max(updateAdminSettingsBodyWhatsAppContactNumberMax).regex(updateAdminSettingsBodyWhatsAppContactNumberRegExp).nullish(),
   "heroTitle": zod.string().min(1).max(updateAdminSettingsBodyHeroTitleMax).optional(),
   "heroHighlight": zod.string().min(1).max(updateAdminSettingsBodyHeroHighlightMax).optional(),
   "heroDescription": zod.string().min(1).max(updateAdminSettingsBodyHeroDescriptionMax).optional(),
@@ -1394,6 +1413,10 @@ export const UpdateAdminSettingsBody = zod.object({
   "promotionalActionLabel": zod.string().min(1).max(updateAdminSettingsBodyPromotionalActionLabelMax).optional(),
   "promotionalUrl": zod.string().regex(updateAdminSettingsBodyPromotionalUrlRegExp).optional()
 })
+
+export const updateAdminSettingsResponseWhatsAppContactNumberMax = 32;
+
+
 
 export const UpdateAdminSettingsResponse = zod.object({
   "currency": zod.string().nullable(),
@@ -1404,6 +1427,8 @@ export const UpdateAdminSettingsResponse = zod.object({
   "storeName": zod.string(),
   "supportEmail": zod.string().nullish(),
   "contactPhone": zod.string().nullish(),
+  "whatsAppCheckoutEnabled": zod.boolean(),
+  "whatsAppContactNumber": zod.string().max(updateAdminSettingsResponseWhatsAppContactNumberMax).nullable(),
   "heroTitle": zod.string(),
   "heroHighlight": zod.string(),
   "heroDescription": zod.string(),

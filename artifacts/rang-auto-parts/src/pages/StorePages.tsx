@@ -1,11 +1,34 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useLocation, useParams, useSearch } from 'wouter';
-import { ArrowRight, BadgeCheck, Check, ChevronLeft, ChevronRight, CircleDollarSign, Gauge, Mail, Minus, Phone, Plus, SlidersHorizontal, Truck, Wrench, X } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Check, ChevronLeft, ChevronRight, CircleDollarSign, Gauge, Mail, MessageCircle, Minus, Phone, Plus, SlidersHorizontal, Truck, Wrench, X } from 'lucide-react';
 import { getGetAccountQueryKey, getGetAuthSessionQueryKey, getGetCartQueryKey, useChangePassword, useCreateSupportMessage, useGetAccount, useGetCart, useGetCustomerOrder, useGetProduct, useGetStorefront, useListCategories, useListCustomerOrders, useListProducts, useLogoutAccount, useRemoveCartItem, useSubmitOrder, useUpdateAccount, useUpdateCartItem } from '@workspace/api-client-react';
 import type { CheckoutInput, CheckoutResult, ListProductsParams } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AddCartButton, ApiNotice, EmptyPanel, InlineError, LoadingState, money, PageFrame, ProductCardView, ProductVisual, TrustStrip } from '@/components/store';
+import { buildWhatsAppChatUrl, buildWhatsAppMessage, isValidWhatsAppNumber } from '@/lib/whatsapp';
+
+function openWhatsAppConversation(
+  number: string,
+  message: string,
+  setFeedback: (feedback: string) => void,
+) {
+  const url = buildWhatsAppChatUrl(number, message);
+  if (!url) {
+    setFeedback('WhatsApp is not available right now. You can still use the regular checkout.');
+    return;
+  }
+
+  const chatWindow = window.open('about:blank', '_blank');
+  if (!chatWindow) {
+    setFeedback('Your browser blocked the WhatsApp window. Allow pop-ups, or use the regular checkout instead.');
+    return;
+  }
+
+  chatWindow.opener = null;
+  chatWindow.location.href = url;
+  setFeedback('WhatsApp is opening in a new tab. If the app or web chat does not open, return here and use the regular checkout. This action does not submit an order.');
+}
 
 function useDebouncedValue<T>(value: T, delay = 300): T {
   const [debounced, setDebounced] = useState(value);
@@ -161,9 +184,25 @@ export function CheckoutPage() {
   const {data:cart,isLoading,isError,error,refetch}=useGetCart();const submit=useSubmitOrder();const [,setLocation]=useLocation();
   const {data:storefront}=useGetStorefront();
   const [form,setForm]=useState({name:'',email:'',phone:'',address:'',city:'',region:'',country:'',deliveryNotes:''});
+  const checkoutFormRef=useRef<HTMLFormElement>(null);
   const checkoutAttempt=useRef<{fingerprint:string;key:string}|null>(null);
   const [formError,setFormError]=useState('');
-  const change=(key:keyof typeof form,value:string)=>setForm(v=>({...v,[key]:value}));
+  const [whatsAppFeedback,setWhatsAppFeedback]=useState('');
+  const whatsAppNumber=storefront?.settings.whatsAppCheckoutEnabled&&isValidWhatsAppNumber(storefront.settings.whatsAppContactNumber)?storefront.settings.whatsAppContactNumber:null;
+  const change=(key:keyof typeof form,value:string)=>{setForm(v=>({...v,[key]:value}));setWhatsAppFeedback('')};
+  const startWhatsAppInquiry=()=>{
+    setWhatsAppFeedback('');
+    if(!checkoutFormRef.current?.reportValidity())return;
+    if(!cart||!whatsAppNumber)return;
+    const message=buildWhatsAppMessage({
+      form,
+      items:cart.items.map(item=>({name:item.product.name,sku:item.product.sku,quantity:item.quantity,lineTotal:money(item.lineTotalMinor,cart.currency)})),
+      subtotal:money(cart.subtotalMinor,cart.currency),
+      delivery:money(cart.deliveryFeeMinor,cart.currency),
+      total:money(cart.totalMinor,cart.currency),
+    });
+    openWhatsAppConversation(whatsAppNumber,message,setWhatsAppFeedback);
+  };
   const onSubmit=(e:FormEvent)=>{e.preventDefault();setFormError('');if(!cart?.items.length){setFormError('Your cart is empty. Add a part before checkout.');return;}
     const fingerprint=JSON.stringify({form,items:cart.items.map(item=>[item.productId,item.quantity])});
     if(checkoutAttempt.current?.fingerprint!==fingerprint)checkoutAttempt.current={fingerprint,key:crypto.randomUUID()};
@@ -172,8 +211,10 @@ export function CheckoutPage() {
   };
   return <PageFrame><div className="shell"><div className="page-title"><div className="eyebrow">Your order / 02</div><h1>Delivery details</h1><p style={{color:'hsl(var(--muted-foreground))'}}>Pay when your order arrives. Online payment is not available.</p></div>
     {isLoading?<LoadingState label="Checking cart"/>:isError?<ApiNotice error={error} onRetry={()=>refetch()}/>:!cart?.items.length?<EmptyPanel title="Nothing to check out yet" body="Add a part to your cart first." action="Shop parts" href="/catalog"/>:<div style={{display:'grid',gridTemplateColumns:'1.25fr .75fr',gap:34,paddingBottom:70}} className="checkout-grid">
-       <form onSubmit={onSubmit} className="inline-form" style={{margin:0}}><label className="label">Full name<input className="field" required minLength={2} maxLength={160} value={form.name} onChange={e=>change('name',e.target.value)} data-testid="input-checkout-name"/></label><label className="label">Email<input className="field" type="email" required maxLength={254} value={form.email} onChange={e=>change('email',e.target.value)} data-testid="input-checkout-email"/></label><label className="label">Phone<input className="field" type="tel" required minLength={5} maxLength={32} value={form.phone} onChange={e=>change('phone',e.target.value)} data-testid="input-checkout-phone"/></label><label className="label">Country or territory<input className="field" required minLength={2} maxLength={100} autoComplete="country-name" placeholder="Enter destination country" value={form.country} onChange={e=>change('country',e.target.value)} data-testid="input-checkout-country"/></label><label className="label">State / region <span style={{fontWeight:400,color:'hsl(var(--muted-foreground))'}}>Optional</span><input className="field" maxLength={100} autoComplete="address-level1" placeholder="Enter if applicable" value={form.region} onChange={e=>change('region',e.target.value)} data-testid="input-checkout-region"/></label><label className="label wide">Delivery address<input className="field" required minLength={5} maxLength={300} autoComplete="street-address" value={form.address} onChange={e=>change('address',e.target.value)} data-testid="input-checkout-address"/></label><label className="label">City<input className="field" required minLength={2} maxLength={100} autoComplete="address-level2" value={form.city} onChange={e=>change('city',e.target.value)} data-testid="input-checkout-city"/></label><label className="label">Delivery notes <span style={{fontWeight:400,color:'hsl(var(--muted-foreground))'}}>Optional</span><textarea className="field" rows={2} maxLength={500} value={form.deliveryNotes} onChange={e=>change('deliveryNotes',e.target.value)} data-testid="input-checkout-notes"/></label>
-        <div className="wide notice" style={{display:'flex',gap:11}}><CircleDollarSign size={20}/><div><strong>Cash on delivery</strong><div style={{fontSize:12}}>Submitting an order request does not confirm that a courier serves your address. RANG will confirm delivery before dispatch. No online payment will be requested.</div></div></div>{storefront?.settings.cashOnDeliveryEnabled===false&&<div className="wide"><InlineError message="Cash on delivery is not currently enabled for this store."/></div>}{formError&&<div className="wide"><InlineError message={formError}/></div>}<button className="btn btn-accent wide" disabled={submit.isPending||storefront?.settings.cashOnDeliveryEnabled===false} data-testid="button-submit-order">{submit.isPending?'Submitting order…':'Place order'} <ArrowRight size={15}/></button>
+       <form ref={checkoutFormRef} onSubmit={onSubmit} className="inline-form" style={{margin:0}}><label className="label">Full name<input className="field" required minLength={2} maxLength={160} value={form.name} onChange={e=>change('name',e.target.value)} data-testid="input-checkout-name"/></label><label className="label">Email<input className="field" type="email" required maxLength={254} value={form.email} onChange={e=>change('email',e.target.value)} data-testid="input-checkout-email"/></label><label className="label">Phone<input className="field" type="tel" required minLength={5} maxLength={32} value={form.phone} onChange={e=>change('phone',e.target.value)} data-testid="input-checkout-phone"/></label><label className="label">Country or territory<input className="field" required minLength={2} maxLength={100} autoComplete="country-name" placeholder="Enter destination country" value={form.country} onChange={e=>change('country',e.target.value)} data-testid="input-checkout-country"/></label><label className="label">State / region <span style={{fontWeight:400,color:'hsl(var(--muted-foreground))'}}>Optional</span><input className="field" maxLength={100} autoComplete="address-level1" placeholder="Enter if applicable" value={form.region} onChange={e=>change('region',e.target.value)} data-testid="input-checkout-region"/></label><label className="label wide">Delivery address<input className="field" required minLength={5} maxLength={300} autoComplete="street-address" value={form.address} onChange={e=>change('address',e.target.value)} data-testid="input-checkout-address"/></label><label className="label">City<input className="field" required minLength={2} maxLength={100} autoComplete="address-level2" value={form.city} onChange={e=>change('city',e.target.value)} data-testid="input-checkout-city"/></label><label className="label">Delivery notes <span style={{fontWeight:400,color:'hsl(var(--muted-foreground))'}}>Optional</span><textarea className="field" rows={2} maxLength={500} value={form.deliveryNotes} onChange={e=>change('deliveryNotes',e.target.value)} data-testid="input-checkout-notes"/></label>
+         <div className="wide notice" style={{display:'flex',gap:11}}><CircleDollarSign size={20}/><div><strong>Cash on delivery</strong><div style={{fontSize:12}}>Submitting an order request does not confirm that a courier serves your address. RANG will confirm delivery before dispatch. No online payment will be requested.</div></div></div>{storefront?.settings.cashOnDeliveryEnabled===false&&<div className="wide"><InlineError message="Cash on delivery is not currently enabled for this store."/></div>}{formError&&<div className="wide"><InlineError message={formError}/></div>}<button className="btn btn-accent wide" disabled={submit.isPending||storefront?.settings.cashOnDeliveryEnabled===false} data-testid="button-submit-order">{submit.isPending?'Submitting order…':'Place order'} <ArrowRight size={15}/></button>
+         {whatsAppNumber&&<button className="btn btn-outline wide" type="button" onClick={startWhatsAppInquiry} data-testid="button-whatsapp-checkout"><MessageCircle size={16}/> Continue via WhatsApp</button>}
+         {whatsAppFeedback&&<p className="notice wide" role="status" aria-live="polite" data-testid="status-whatsapp-checkout">{whatsAppFeedback}</p>}
       </form><aside className="notice" style={{height:'fit-content'}}><h2 className="display" style={{fontSize:23,marginTop:0}}>Order summary</h2>{cart.items.map(item=><div key={item.productId} style={{display:'flex',justifyContent:'space-between',gap:15,padding:'10px 0',borderBottom:'1px solid hsl(var(--border))'}}><span>{item.product.name} × {item.quantity}</span><span>{money(item.lineTotalMinor,cart.currency)}</span></div>)}<div style={{display:'flex',justifyContent:'space-between',padding:'14px 0'}}><span>Delivery</span><span>{money(cart.deliveryFeeMinor,cart.currency)}</span></div><strong style={{display:'flex',justifyContent:'space-between',fontSize:17}}>Total <span>{money(cart.totalMinor,cart.currency)}</span></strong></aside>
     </div>}
   </div></PageFrame>;
@@ -182,10 +223,23 @@ export function CheckoutPage() {
 export function OrderPage() {
   const params=useParams<{orderNumber:string}>();const orderNumber=decodeURIComponent(params.orderNumber||'');
   const {data:order,isLoading,isError,error,refetch}=useGetCustomerOrder(orderNumber);
+  const {data:storefront}=useGetStorefront();
+  const [whatsAppFeedback,setWhatsAppFeedback]=useState('');
   const [checkoutResult]=useState<CheckoutResult|null>(()=>{try{const saved=sessionStorage.getItem('rang-last-checkout');return saved?JSON.parse(saved) as CheckoutResult:null}catch{return null}});
   const recentCheckout=checkoutResult?.orderNumber===orderNumber?checkoutResult:null;
   const orderResult=order||recentCheckout;
-  return <PageFrame><div className="shell" style={{padding:'52px 0 80px',maxWidth:850}}>{isLoading&&!recentCheckout?<LoadingState label="Loading order"/>:isError&&!orderResult?<ApiNotice error={error} onRetry={()=>refetch()}/>:orderResult?<><div className="notice" style={{textAlign:'center',padding:36,marginBottom:28}}><div style={{color:'hsl(var(--primary))'}}><Check size={34} style={{margin:'auto'}}/></div><div className="eyebrow" style={{marginTop:12}}>Order submitted</div><h1 className="display" style={{fontSize:40,margin:'8px 0'}}>Thank you. We have it.</h1><p style={{color:'hsl(var(--muted-foreground))'}}>Your order number is <strong data-testid="text-order-number">{orderResult.orderNumber}</strong>. We will confirm the details before dispatch.</p><span className="status-pill">{orderResult.orderStatus}</span></div><div className="notice"><div className="eyebrow">Order progress</div><div style={{display:'flex',gap:12,margin:'18px 0'}}><span className="status-pill">{orderResult.orderStatus}</span><span className="status-pill">{orderResult.fulfillmentStatus}</span><span className="status-pill">{orderResult.paymentStatus}</span></div>{order&&order.items.map((item,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',borderTop:'1px solid hsl(var(--border))',padding:'12px 0'}}><span>{item.name} · {item.quantity}</span><span>{money(item.lineTotalMinor,order.currency)}</span></div>)}<strong style={{display:'flex',justifyContent:'space-between',paddingTop:12}}>Total <span>{money(orderResult.totalMinor,orderResult.currency)}</span></strong>{!order&&<p className="eyebrow" style={{marginBottom:0}}>Sign in to access full order tracking.</p>}</div><p style={{marginTop:20}}><Link href="/catalog" className="btn" data-testid="link-continue-shopping">Continue shopping <ArrowRight size={15}/></Link></p></>:null}</div></PageFrame>;
+  const whatsAppNumber=storefront?.settings.whatsAppCheckoutEnabled&&isValidWhatsAppNumber(storefront.settings.whatsAppContactNumber)?storefront.settings.whatsAppContactNumber:null;
+  const openOrderWhatsApp=()=>{
+    if(!orderResult||!whatsAppNumber)return;
+    const message=buildWhatsAppMessage({
+      orderReference:orderResult.orderNumber,
+      orderStatus:orderResult.orderStatus,
+      items:order?.items.map(item=>({name:item.name,quantity:item.quantity,lineTotal:money(item.lineTotalMinor,order.currency)})),
+      total:money(orderResult.totalMinor,orderResult.currency),
+    });
+    openWhatsAppConversation(whatsAppNumber,message,setWhatsAppFeedback);
+  };
+  return <PageFrame><div className="shell" style={{padding:'52px 0 80px',maxWidth:850}}>{isLoading&&!recentCheckout?<LoadingState label="Loading order"/>:isError&&!orderResult?<ApiNotice error={error} onRetry={()=>refetch()}/>:orderResult?<><div className="notice" style={{textAlign:'center',padding:36,marginBottom:28}}><div style={{color:'hsl(var(--primary))'}}><Check size={34} style={{margin:'auto'}}/></div><div className="eyebrow" style={{marginTop:12}}>Order submitted</div><h1 className="display" style={{fontSize:40,margin:'8px 0'}}>Thank you. We have it.</h1><p style={{color:'hsl(var(--muted-foreground))'}}>Your order number is <strong data-testid="text-order-number">{orderResult.orderNumber}</strong>. We will confirm the details before dispatch.</p><span className="status-pill">{orderResult.orderStatus}</span></div><div className="notice"><div className="eyebrow">Order progress</div><div style={{display:'flex',gap:12,margin:'18px 0'}}><span className="status-pill">{orderResult.orderStatus}</span><span className="status-pill">{orderResult.fulfillmentStatus}</span><span className="status-pill">{orderResult.paymentStatus}</span></div>{order&&order.items.map((item,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',borderTop:'1px solid hsl(var(--border))',padding:'12px 0'}}><span>{item.name} · {item.quantity}</span><span>{money(item.lineTotalMinor,order.currency)}</span></div>)}<strong style={{display:'flex',justifyContent:'space-between',paddingTop:12}}>Total <span>{money(orderResult.totalMinor,orderResult.currency)}</span></strong>{!order&&<p className="eyebrow" style={{marginBottom:0}}>Sign in to access full order tracking.</p>}</div><div style={{marginTop:20,display:'flex',gap:10,flexWrap:'wrap'}}><Link href="/catalog" className="btn" data-testid="link-continue-shopping">Continue shopping <ArrowRight size={15}/></Link>{whatsAppNumber&&<button type="button" className="btn btn-outline" onClick={openOrderWhatsApp} data-testid="button-whatsapp-order-followup"><MessageCircle size={16}/> Ask about this order</button>}</div>{whatsAppFeedback&&<p className="notice" role="status" aria-live="polite" data-testid="status-whatsapp-order">{whatsAppFeedback}</p>}</>:null}</div></PageFrame>;
 }
 
 export function AccountPage() {

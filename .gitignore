@@ -27,6 +27,12 @@ node_modules
 *.dump
 *.backup
 
+# User-provided attachments may contain private photos, prompts, and data.
+# Keep only the generated demo catalog fixtures needed by the seed script.
+/attached_assets/*
+!/attached_assets/generated_images/
+!/attached_assets/generated_images/**
+
 # IDEs and editors
 /.idea
 .project

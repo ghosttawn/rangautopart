@@ -383,6 +383,12 @@ export interface StoreSettings {
   supportEmail?: string | null;
   /** @nullable */
   contactPhone?: string | null;
+  whatsAppCheckoutEnabled: boolean;
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  whatsAppContactNumber: string | null;
   heroTitle: string;
   heroHighlight: string;
   heroDescription: string;
@@ -437,6 +443,14 @@ export interface StoreSettingsInput {
      * @nullable
      */
   contactPhone?: string | null;
+  whatsAppCheckoutEnabled?: boolean;
+  /**
+     * @minLength 8
+     * @maxLength 32
+     * @nullable
+     * @pattern ^[+0-9(). -]+$
+     */
+  whatsAppContactNumber?: string | null;
   /**
      * @minLength 1
      * @maxLength 80

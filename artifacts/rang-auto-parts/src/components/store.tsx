@@ -16,7 +16,6 @@ export function Header() {
   const cartCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const closeMenu = () => setMenuOpen(false);
   return <>
-    <div className="topline">RANG AUTO PARTS &nbsp;·&nbsp; CASH ON DELIVERY AVAILABLE</div>
     <header className="header"><div className="shell header-inner">
       <Brand />
       <nav className="nav-links" aria-label="Main navigation">

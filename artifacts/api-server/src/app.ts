@@ -160,6 +160,18 @@ app.use((err: unknown, req: express.Request, res: express.Response, _next: expre
   if (
     typeof err === "object" &&
     err !== null &&
+    "code" in err &&
+    (err.code === "LIMIT_FILE_COUNT" || err.code === "LIMIT_UNEXPECTED_FILE")
+  ) {
+    res.status(400).json({
+      error: "Upload one image at a time.",
+      code: "INVALID_IMAGE_UPLOAD",
+    });
+    return;
+  }
+  if (
+    typeof err === "object" &&
+    err !== null &&
     "type" in err &&
     err.type === "entity.parse.failed"
   ) {

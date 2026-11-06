@@ -28,7 +28,49 @@ import type {
 } from "@workspace/db";
 import { isSupportedCurrencyCode } from "./currency";
 
-const DEFAULT_SETTINGS: StoreSettings = {
+type StoreSettingsSummary = Omit<
+  StoreSettings,
+  "heroImageData" | "heroImageContentType" | "heroImageSize"
+> & { hasHeroImage: boolean };
+
+type CategorySummary = Pick<
+  Category,
+  "id" | "name" | "slug" | "description" | "active"
+> & { hasImage: boolean };
+
+export const settingsSummarySelection = {
+  id: storeSettingsTable.id,
+  storeName: storeSettingsTable.storeName,
+  currency: storeSettingsTable.currency,
+  deliveryFeeMinor: storeSettingsTable.deliveryFeeMinor,
+  deliveryRegions: storeSettingsTable.deliveryRegions,
+  cashOnDeliveryEnabled: storeSettingsTable.cashOnDeliveryEnabled,
+  onlinePaymentsEnabled: storeSettingsTable.onlinePaymentsEnabled,
+  supportEmail: storeSettingsTable.supportEmail,
+  contactPhone: storeSettingsTable.contactPhone,
+  whatsAppCheckoutEnabled: storeSettingsTable.whatsAppCheckoutEnabled,
+  whatsAppContactNumber: storeSettingsTable.whatsAppContactNumber,
+  heroTitle: storeSettingsTable.heroTitle,
+  heroHighlight: storeSettingsTable.heroHighlight,
+  heroDescription: storeSettingsTable.heroDescription,
+  hasHeroImage: sql<boolean>`${storeSettingsTable.heroImageData} IS NOT NULL`,
+  promotionalTitle: storeSettingsTable.promotionalTitle,
+  promotionalBody: storeSettingsTable.promotionalBody,
+  promotionalActionLabel: storeSettingsTable.promotionalActionLabel,
+  promotionalUrl: storeSettingsTable.promotionalUrl,
+  updatedAt: storeSettingsTable.updatedAt,
+};
+
+export const categorySummarySelection = {
+  id: categoriesTable.id,
+  name: categoriesTable.name,
+  slug: categoriesTable.slug,
+  description: categoriesTable.description,
+  active: categoriesTable.active,
+  hasImage: sql<boolean>`${categoriesTable.imageData} IS NOT NULL`,
+};
+
+const DEFAULT_SETTINGS: StoreSettingsSummary = {
   id: 1,
   storeName: "RANG Auto Parts",
   currency: "XAF",
@@ -38,13 +80,13 @@ const DEFAULT_SETTINGS: StoreSettings = {
   onlinePaymentsEnabled: false,
   supportEmail: null,
   contactPhone: null,
+  whatsAppCheckoutEnabled: false,
+  whatsAppContactNumber: null,
   heroTitle: "Keep your",
   heroHighlight: "machine moving.",
   heroDescription:
     "Reliable parts for ATVs, cars, motorcycles and utility vehicles. Find the right piece, know what you are getting, and get on with the repair.",
-  heroImageData: null,
-  heroImageContentType: null,
-  heroImageSize: null,
+  hasHeroImage: false,
   promotionalTitle: "Not sure it fits? Ask first.",
   promotionalBody:
     "Send us the make, model and year. We will help you narrow it down before you order.",
@@ -53,12 +95,22 @@ const DEFAULT_SETTINGS: StoreSettings = {
   updatedAt: new Date(0),
 };
 
-export async function getSettings(): Promise<StoreSettings> {
-  const [settings] = await db.select().from(storeSettingsTable).limit(1);
+export async function getSettings(): Promise<StoreSettingsSummary> {
+  const [settings] = await db
+    .select(settingsSummarySelection)
+    .from(storeSettingsTable)
+    .limit(1);
   return settings ?? DEFAULT_SETTINGS;
 }
 
-export function settingsDto(settings: StoreSettings) {
+export function settingsDto(
+  settings: StoreSettingsSummary,
+  options: { publicView?: boolean } = {},
+) {
+  const whatsAppAvailable =
+    settings.whatsAppCheckoutEnabled &&
+    typeof settings.whatsAppContactNumber === "string" &&
+    /^\+[1-9]\d{7,14}$/.test(settings.whatsAppContactNumber);
   return {
     storeName: settings.storeName,
     currency: settings.currency,
@@ -68,10 +120,17 @@ export function settingsDto(settings: StoreSettings) {
     onlinePaymentsEnabled: false,
     supportEmail: settings.supportEmail,
     contactPhone: settings.contactPhone,
+    whatsAppCheckoutEnabled: options.publicView
+      ? whatsAppAvailable
+      : settings.whatsAppCheckoutEnabled,
+    whatsAppContactNumber:
+      options.publicView && !whatsAppAvailable
+        ? null
+        : settings.whatsAppContactNumber,
     heroTitle: settings.heroTitle,
     heroHighlight: settings.heroHighlight,
     heroDescription: settings.heroDescription,
-    heroImageUrl: settings.heroImageData
+    heroImageUrl: settings.hasHeroImage
       ? "/api/storefront/hero-image"
       : "/rang-hero.jpg",
     promotionalTitle: settings.promotionalTitle,
@@ -89,7 +148,7 @@ export function unitPrice(product: Product): number {
     : product.priceMinor;
 }
 
-export async function categoryDto(category: Category) {
+export async function categoryDto(category: CategorySummary) {
   const [count] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(productsTable)
@@ -100,12 +159,12 @@ export async function categoryDto(category: Category) {
     slug: category.slug,
     description: category.description,
     productCount: count?.count ?? 0,
-    imageUrl: category.imageData ? `/api/category-images/${category.id}` : null,
+    imageUrl: category.hasImage ? `/api/category-images/${category.id}` : null,
     active: category.active,
   };
 }
 
-export async function categoryDtos(categories: Category[]) {
+export async function categoryDtos(categories: CategorySummary[]) {
   if (categories.length === 0) return [];
   const ids = categories.map((category) => category.id);
   const counts = await db
@@ -123,7 +182,7 @@ export async function categoryDtos(categories: Category[]) {
     slug: category.slug,
     description: category.description,
     productCount: countById.get(category.id) ?? 0,
-    imageUrl: category.imageData ? `/api/category-images/${category.id}` : null,
+    imageUrl: category.hasImage ? `/api/category-images/${category.id}` : null,
     active: category.active,
   }));
 }
@@ -185,7 +244,9 @@ export async function productCards(products: Product[]) {
   })) satisfies ProductCard[];
 }
 
-export function publicImageDto(image: ProductImage) {
+export function publicImageDto(
+  image: Pick<ProductImage, "id" | "contentType" | "size" | "altText">,
+) {
   return {
     id: image.id,
     url: `/api/product-images/${image.id}`,

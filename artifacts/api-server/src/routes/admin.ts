@@ -64,21 +64,23 @@ import { HttpError, requireUser } from "../middlewares/auth";
 import { isSupportedCurrencyCode } from "../lib/currency";
 import {
   categoryDto,
+  categorySummarySelection,
   categoryDtos,
   getSettings,
   orderDto,
   orderDtos,
   productCards,
   publicImageDto,
+  settingsSummarySelection,
   settingsDto,
 } from "../lib/store";
+import { IMAGE_MAX_BYTES, IMAGE_TYPES, imageSignatureMatches } from "../lib/image-validation";
+import { normalizeWhatsAppContactNumber } from "../lib/whatsapp-contact";
 
 const router: IRouter = Router();
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function errorResponse(message: string, code: string) {
   return { error: message, code };
@@ -121,23 +123,6 @@ const imageUpload = multer({
   },
 });
 
-function imageSignatureMatches(type: string, bytes: Buffer): boolean {
-  if (type === "image/jpeg") {
-    return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-  }
-  if (type === "image/png") {
-    return bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-  }
-  if (type === "image/webp") {
-    return (
-      bytes.length >= 12 &&
-      bytes.toString("ascii", 0, 4) === "RIFF" &&
-      bytes.toString("ascii", 8, 12) === "WEBP"
-    );
-  }
-  return false;
-}
-
 async function productDto(productId: string) {
   const [product] = await db
     .select()
@@ -148,7 +133,12 @@ async function productDto(productId: string) {
   const [card, images, compatibility] = await Promise.all([
     productCards([product]),
     db
-      .select()
+      .select({
+        id: productImagesTable.id,
+        contentType: productImagesTable.contentType,
+        size: productImagesTable.size,
+        altText: productImagesTable.altText,
+      })
       .from(productImagesTable)
       .where(eq(productImagesTable.productId, product.id))
       .orderBy(asc(productImagesTable.sortOrder), asc(productImagesTable.createdAt)),
@@ -589,7 +579,7 @@ router.delete(
 
 router.get("/admin/categories", async (_req, res): Promise<void> => {
   const categories = await db
-    .select()
+    .select(categorySummarySelection)
     .from(categoriesTable)
     .orderBy(asc(categoriesTable.name));
   res.json(ListAdminCategoriesResponse.parse(await categoryDtos(categories)));
@@ -617,7 +607,14 @@ router.post(
         imageSize: file.size,
       })
       .where(eq(categoriesTable.id, params.data.categoryId))
-      .returning();
+      .returning({
+        id: categoriesTable.id,
+        name: categoriesTable.name,
+        slug: categoriesTable.slug,
+        description: categoriesTable.description,
+        active: categoriesTable.active,
+        hasImage: sql<boolean>`${categoriesTable.imageData} IS NOT NULL`,
+      });
     if (!category) {
       res.status(404).json(errorResponse("Category not found.", "CATEGORY_NOT_FOUND"));
       return;
@@ -681,7 +678,14 @@ router.patch("/admin/categories/:categoryId", async (req, res): Promise<void> =>
       active: parsed.data.active ?? true,
     })
     .where(eq(categoriesTable.id, params.data.categoryId))
-    .returning();
+    .returning({
+      id: categoriesTable.id,
+      name: categoriesTable.name,
+      slug: categoriesTable.slug,
+      description: categoriesTable.description,
+      active: categoriesTable.active,
+      hasImage: sql<boolean>`${categoriesTable.imageData} IS NOT NULL`,
+    });
   if (!category) {
     res.status(404).json(errorResponse("Category not found.", "CATEGORY_NOT_FOUND"));
     return;
@@ -698,7 +702,7 @@ router.patch("/admin/categories/:categoryId", async (req, res): Promise<void> =>
       description: category.description,
       active: category.active,
       productCount: count?.count ?? 0,
-      imageUrl: category.imageData
+      imageUrl: category.hasImage
         ? `/api/category-images/${category.id}`
         : null,
     }),
@@ -984,21 +988,21 @@ router.post(
       updatedAt: new Date(),
     };
     const [existing] = await db.select().from(storeSettingsTable).limit(1);
-    const [settings] = existing
-      ? await db
+    if (existing) {
+      await db
           .update(storeSettingsTable)
           .set(values)
           .where(eq(storeSettingsTable.id, existing.id))
-          .returning()
-      : await db
+    } else {
+      await db
           .insert(storeSettingsTable)
-          .values({ id: 1, ...values })
-          .returning();
+          .values({ id: 1, ...values });
+    }
     res.json(
       UploadHeroImageResponse.parse({
         url: "/api/storefront/hero-image",
-        contentType: settings!.heroImageContentType,
-        size: settings!.heroImageSize,
+        contentType: file.mimetype,
+        size: file.size,
       }),
     );
   },
@@ -1030,6 +1034,24 @@ router.patch("/admin/settings", adminOnly, async (req, res): Promise<void> => {
     );
     return;
   }
+  let whatsAppContactNumber: string | null | undefined;
+  if (parsed.data.whatsAppContactNumber !== undefined) {
+    try {
+      whatsAppContactNumber = normalizeWhatsAppContactNumber(
+        parsed.data.whatsAppContactNumber,
+      );
+    } catch (error) {
+      res.status(400).json(
+        errorResponse(
+          error instanceof Error
+            ? error.message
+            : "Enter a valid international WhatsApp number.",
+          "INVALID_WHATSAPP_NUMBER",
+        ),
+      );
+      return;
+    }
+  }
   const values = {
     ...(parsed.data.storeName !== undefined
       ? { storeName: parsed.data.storeName.trim() }
@@ -1047,6 +1069,12 @@ router.patch("/admin/settings", adminOnly, async (req, res): Promise<void> => {
       : {}),
     ...(parsed.data.contactPhone !== undefined
       ? { contactPhone: parsed.data.contactPhone?.trim() || null }
+      : {}),
+    ...(parsed.data.whatsAppCheckoutEnabled !== undefined
+      ? { whatsAppCheckoutEnabled: parsed.data.whatsAppCheckoutEnabled }
+      : {}),
+    ...(parsed.data.whatsAppContactNumber !== undefined
+      ? { whatsAppContactNumber: whatsAppContactNumber ?? null }
       : {}),
     ...(parsed.data.heroTitle !== undefined
       ? { heroTitle: parsed.data.heroTitle.trim() }
@@ -1075,7 +1103,7 @@ router.patch("/admin/settings", adminOnly, async (req, res): Promise<void> => {
     .insert(storeSettingsTable)
     .values({ id: 1, ...values })
     .onConflictDoUpdate({ target: storeSettingsTable.id, set: values })
-    .returning();
+    .returning(settingsSummarySelection);
   const dto = settingsDto(settings!);
   res.set("Cache-Control", "private, no-store").json(
     UpdateAdminSettingsResponse.parse(dto),

@@ -12,3 +12,8 @@
 *.sqlite3
 *.dump
 *.backup
+
+# User-provided attachments are private and are not runtime assets.
+/attached_assets/*
+!/attached_assets/generated_images/
+!/attached_assets/generated_images/**

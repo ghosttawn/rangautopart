@@ -30,6 +30,10 @@ export const storeSettingsTable = pgTable("store_settings", {
     .default(false),
   supportEmail: text("support_email"),
   contactPhone: text("contact_phone"),
+  whatsAppCheckoutEnabled: boolean("whatsapp_checkout_enabled")
+    .notNull()
+    .default(false),
+  whatsAppContactNumber: text("whatsapp_contact_number"),
   heroTitle: text("hero_title").notNull().default("Keep your"),
   heroHighlight: text("hero_highlight").notNull().default("machine moving."),
   heroDescription: text("hero_description")
