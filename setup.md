@@ -1,72 +1,95 @@
-# RANG Auto Parts: Render and Neon setup
+# RANG Auto Parts: portable setup and Render + Neon deployment
 
-This guide describes the existing RANG storefront and API. It does not seed demo
-products into production, create shipping-provider integrations, send support
-emails, or claim a destination is deliverable before staff confirms it.
+This guide covers the portable source export, local setup, safe first-time
+storefront seeding, and deployment to a separate Render API and Static Site
+backed by Neon. The committed seed recreates the current catalog and images; it
+does not create customer accounts, orders, or an administrator.
 
-## 1. Prerequisites and repository
+## 1. Project contents and prerequisites
 
-- A GitHub repository containing this pnpm monorepo, `pnpm-lock.yaml`, and the
-  committed SQL files in `lib/db/drizzle/`.
-- Node.js 24 and pnpm 10.26.1. The repository pins the Node line in
-  `.node-version` and pnpm in the root `package.json`.
-- A Neon PostgreSQL project and Render account.
+The clean download includes the storefront and API source, shared API and
+database packages, migrations, tests, the exact catalog image fixtures, package
+manifests and lockfile, `.env.example`, `.gitignore`, and this setup guide. It
+excludes dependency folders, build output, uploaded/private attachments, caches,
+Replit-only configuration, the mockup sandbox, and duplicate operations notes.
 
-The repository root is the monorepo root. The API is in
+- Node.js 24 and pnpm 10.26.1. The repository pins these in `.node-version` and
+  the root `package.json`.
+- A PostgreSQL database for local development.
+- A Neon PostgreSQL project and Render account for deployment.
+
+The repository root is the pnpm workspace root. The API is in
 `artifacts/api-server`; the static storefront is in
 `artifacts/rang-auto-parts`; database schema and migrations are in `lib/db`.
 Use the repository root as the Render root directory.
 
-### Prepare and connect GitHub
+### Install and run locally
 
-1. Create or select the **private** GitHub repository that should hold this
-   project. Keep it empty when creating it; do not add a second README, license,
-   or `.gitignore` that could create an unrelated first commit.
-2. In Replit, open the Repositories page at
-   <https://replit.com/repos>, connect the intended GitHub account, and select
-   the correct repository for this project. Replit's GitHub connection uses
-   account authorization; do not paste a token into chat or project files.
-3. Before committing, review `git status --short`. The project `.gitignore`
-   keeps environment files, local databases, and non-demo uploaded attachments
-   out of Git. Keep only the approved `attached_assets/generated_images`
-   catalog fixtures if seed imagery is needed.
-4. Commit the project from its repository root and push the current branch. In
-   the Replit Git panel, confirm the repository owner/name and branch before
-   pressing **Push**. For a command-line push, use the connected repository as
-   `origin`, then run `git push -u origin main` for this project's current
-   branch. Do not force-push or replace repository history to resolve an
-   unrelated-history warning; stop and compare the two histories first.
-5. Verify the push by checking that the GitHub repository shows the latest
-   commit and that `pnpm-lock.yaml`, the migration SQL/metadata, seed script,
-   setup guide, `.env.example`, and application source are present.
+From the extracted project root:
 
-#### If a Personal Access Token is required
+```sh
+pnpm install --frozen-lockfile
+```
 
-Prefer Replit's authorized GitHub connection above. If the Git workflow
-specifically requires a Personal Access Token (PAT):
+Set `DATABASE_URL` in your shell to a local PostgreSQL database or a disposable
+Neon development branch. Do not use a production connection string for local
+testing. Apply the committed migrations:
 
-1. On GitHub, open **Settings → Developer settings → Personal access tokens →
-   Fine-grained tokens**, or go directly to
-   <https://github.com/settings/personal-access-tokens/new>.
-2. Choose the correct resource owner, set repository access to **Only select
-   repositories**, and select this project's repository.
-3. Grant only the repository permission **Contents: Read and write**. GitHub
-   supplies the required **Metadata: Read-only** permission. Do not grant
-   organization administration, workflows, or other permissions for a normal
-   source push. Set an expiry and follow any organization approval/SSO policy.
-4. Copy the generated token once. In Replit's **Secrets** pane, create the
-   secret `GIT_URL` with the credential URL value
-   `https://<github-username>:<token>@github.com/<owner>/<repository>.git`.
-   Use the Secrets pane's value field only; never put this URL in source code,
-   `.env.example`, a committed Git remote, a screenshot, or chat. Remove or
-   rotate this secret after the push if it is no longer needed.
-5. Select the intended repository in Replit and push. Verify the new commit on
-   GitHub. If authentication fails, check repository selection, token expiry,
-   `Contents: Read and write`, and any organization approval; do not broaden
-   permissions without identifying the missing permission.
+```sh
+pnpm --filter @workspace/db run migrate
+```
 
-The GitHub account/repository must be chosen and authorized by the owner. No
-GitHub repository is assumed or claimed to be connected by this guide.
+To recreate the initial storefront in an empty local database, explicitly
+confirm the development seed:
+
+```sh
+NODE_ENV=development RANG_INITIAL_SEED_CONFIRM=development \
+  pnpm --filter @workspace/scripts run seed-storefront
+```
+
+In one terminal, start the API (it listens on port 5000 by default):
+
+```sh
+DATABASE_URL="$DATABASE_URL" NODE_ENV=development \
+FRONTEND_ORIGINS=http://localhost:5173 PORT=5000 \
+  pnpm --filter @workspace/api-server run dev
+```
+
+In a second terminal, start the storefront (Vite listens on port 5173 by
+default):
+
+```sh
+VITE_API_BASE_URL=http://localhost:5000 \
+  pnpm --filter @workspace/rang-auto-parts run dev
+```
+
+Open `http://localhost:5173`. The frontend uses the API at
+`http://localhost:5000`; `FRONTEND_ORIGINS` must match the local storefront
+origin. Set these variables in the shell that starts each service. Never commit
+a real `.env` file or database URL.
+
+### Push the clean project to GitHub
+
+1. Create a private GitHub repository under the account that should own the
+   project.
+2. Extract the download and review `git status --short`. Confirm that `.env`,
+   database dumps, and personal attachments are not present.
+3. From the project root, initialize Git if this is a new local checkout, then
+   connect and push the repository:
+
+   ```sh
+   git init
+   git add .
+   git commit -m "Prepare RANG Auto Parts"
+   git branch -M main
+   git remote add origin https://github.com/<owner>/<repository>.git
+   git push -u origin main
+   ```
+
+   If the repository already has a remote or history, inspect it before
+   committing. Do not force-push or overwrite unrelated repository history.
+4. On GitHub, confirm the source, `pnpm-lock.yaml`, migrations, seed files,
+   `.env.example`, and `setup.md` are present.
 
 ## 2. Create the Neon database
 
@@ -77,10 +100,8 @@ GitHub repository is assumed or claimed to be connected by this guide.
    the connection string should include `sslmode=require`.
 3. Store this connection string only as the API Web Service's `DATABASE_URL`
    secret. Do not add it to a frontend variable, source file, or GitHub.
-4. Keep a separate direct connection string for one-off schema migrations if
-   Neon recommends it for your database. Migrations use `DATABASE_URL`; no
-   schema changes or sample data are applied automatically when the server
-   starts.
+4. The automatic deployment migration uses this same `DATABASE_URL`. No
+   additional migration URL or frontend database setting is required.
 
 The API uses one PostgreSQL pool with a maximum of five connections per
 instance. Neon usage and limits can still depend on traffic, queries, storage,
@@ -89,9 +110,20 @@ are approached.
 
 ## 3. Apply schema migrations
 
-Run migrations against the intended Neon database before starting the new API
-service. From a trusted clean checkout, install the workspace and enter the
-connection string without echoing it or putting it in shell history:
+The Render API build command in the next section builds the API, then applies
+pending Drizzle migrations using the API service's production `DATABASE_URL`.
+This works on Render's Free plan and does not require a terminal or a paid-only
+pre-deploy command. The migration runner takes a PostgreSQL transaction-level
+advisory lock, checks Drizzle's migration history, and applies pending SQL in a
+transaction before the new API starts. Already-recorded migrations are skipped.
+If a migration fails, the transaction rolls back and the build fails rather
+than starting the new API with an incomplete schema. The Static Site build does
+not connect to Neon or run migrations.
+
+No manual migration command is needed for a fresh Neon database or subsequent
+Render API deployments. The following guarded command remains available for a
+trusted one-off operation if needed; enter the connection string without
+echoing it or putting it in shell history:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -103,42 +135,54 @@ unset DATABASE_URL
 ```
 
 `migrate` applies the committed, ordered Drizzle SQL migrations, including
-`lib/db/drizzle/0000_sloppy_cargill.sql` and later migrations. It is safe to run
-again after a successful run. Review and commit generated migration SQL and
-metadata together whenever the schema changes. Back up production before any
-schema change; do not use `push` or `push-force` against production.
+`lib/db/drizzle/0000_sloppy_cargill.sql` and later migrations. It skips
+migrations already recorded in Drizzle's history and uses the same lock and
+transaction behavior as the Render build. Review and commit generated migration
+SQL and metadata together whenever the schema changes. Back up production
+before any schema change; do not use `push` or `push-force` against production.
 
 For a database that already contains tables or was previously managed with
 schema pushes, pause before applying the migrations. Compare its schema and
 `drizzle.__drizzle_migrations` history with the committed SQL first; do not
-assume an existing table means its migration was recorded.
+assume an existing table means its migration was recorded. Do this check before
+enabling the automatic Render migration command on an existing database.
 
-The existing catalog seed is for development/demo use only. It requires both
-`NODE_ENV=development` and `RANG_DEMO_SEED_CONFIRM=development`, and refuses to
-run in production. Do not run it against Neon production. Populate production
-with business-approved catalog data through the admin dashboard or a separately
-reviewed import.
+### One-time initial storefront seed
 
-To reproduce the existing development catalog, first confirm the selected
-database is a disposable development database, then run:
+The committed initial seed recreates the current storefront population: five
+categories, eight products, their prices, descriptions, specifications, stock,
+fitment records, the current store settings and promotions, and the exact JPEG
+images. The image fixtures are in `attached_assets/generated_images`; the seed
+checks each file's SHA-256 hash before writing it. Image bytes are stored in
+PostgreSQL `BYTEA`, then served through the existing image endpoints.
+
+The seed is a separate, manual step after migrations. It is not part of the
+Render API build or normal deployments. It requires empty category, product,
+image, fitment, and store-settings tables, and writes all records and its
+completion marker in one transaction. If any of those tables already contain
+data and the marker is missing, it stops without changing the database. Running
+it again after a successful seed is a no-op, so later administrator edits are
+not replaced.
+
+For a new Neon database, first deploy the API once so Render applies migrations
+and the health check succeeds. Then run this one-time command from a trusted
+checkout. Verify in the Neon console that this is the intended, empty database.
+Enter the connection string at the prompt; do not echo it or put it in shell
+history:
 
 ```sh
-read -rsp "Development DATABASE_URL: " DATABASE_URL
+read -rsp "New Neon DATABASE_URL: " DATABASE_URL
 echo
 export DATABASE_URL
-NODE_ENV=development RANG_DEMO_SEED_CONFIRM=development \
-  pnpm --filter @workspace/scripts run seed-demo
+NODE_ENV=production RANG_INITIAL_SEED_CONFIRM=production \
+  pnpm --filter @workspace/scripts run seed-storefront
 unset DATABASE_URL
 ```
 
-The confirmation environment variable is only a guard; it does not prove which
-database a connection string targets. Verify the database name and host in the
-database provider's console before running the seed.
-
-The seed uses the committed catalog and `attached_assets/generated_images`,
-inserts only missing demo records, and preserves existing records. It does not
-create an administrator; use the separately guarded provisioning command for
-that. Re-running it is intended for development only.
+For a fresh local or disposable development database, use the same script with
+`NODE_ENV=development` and `RANG_INITIAL_SEED_CONFIRM=development`, as shown in
+the local setup section. The seed does not create customers, orders, or an
+administrator; create the first administrator separately after deployment.
 
 ## 4. Render API Web Service
 
@@ -146,7 +190,7 @@ that. Re-running it is intended for development only.
 | --- | --- |
 | Root Directory | repository root (`.`); leave blank if Render treats blank as root |
 | Runtime | Node |
-| Build Command | `pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build` |
+| Build Command | `pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run render:build` |
 | Start Command | `pnpm --filter @workspace/api-server run start` |
 | Health Check Path | `/api/healthz` |
 
@@ -162,6 +206,16 @@ Set these API Web Service environment variables in Render:
 The service listens on `0.0.0.0` using Render's `PORT`. The health endpoint
 checks PostgreSQL and returns `503` if the database cannot be reached. Do not
 mark the API healthy solely because its process has started.
+
+The `render:build` command requires `NODE_ENV=production` and `DATABASE_URL`.
+It builds the API, then takes a transaction-level PostgreSQL advisory lock and
+applies pending migrations from the committed Drizzle history once per Render
+API build—not on every process restart. A migration error is logged without
+printing the database URL, causes the build to fail, and prevents the new
+service version from starting. Keep migrations backward-compatible with the
+currently running API, and review/back up production before introducing any
+destructive schema change. The committed migrations currently create tables
+and add columns; none drops or resets tables or records.
 
 `FRONTEND_ORIGINS` must match the deployed Static Site origin exactly, including
 the scheme and any custom port. The API rejects cross-origin writes from origins
@@ -213,7 +267,7 @@ request; repeat the upload to add views, and remove an image from the product
 editor to delete it. Replacing a category or homepage image updates its stored
 image. A refresh retrieves the bytes from the database-backed image endpoint.
 This matches the existing schema and survives Render restarts and redeploys; no
-Render disk or Replit-only object-storage service is required.
+No persistent disk or separate object-storage service is required.
 
 Database-backed images increase Neon storage and backup size as the catalog
 grows. Keep product images optimized before upload and monitor database usage.
@@ -225,18 +279,31 @@ or updates all references; do not switch to Render's temporary filesystem.
 
 Use this order:
 
-1. Create Neon and set the API Web Service `DATABASE_URL`.
-2. Apply committed migrations to Neon.
-3. Create the API Web Service and the Static Site in Render so both assigned
-   service URLs are available.
-4. Set the API's `FRONTEND_ORIGINS` to the exact Static Site origin. Set the
+1. Create the Neon database and copy its pooled TLS connection string.
+2. Create the API Web Service and add the connection string as its
+   `DATABASE_URL` secret. Set `NODE_ENV=production` and the other required API
+   environment variables from section 4 before deploying.
+3. Deploy the API. Render installs dependencies, builds the API, and
+   automatically applies pending migrations using `DATABASE_URL` before starting
+   the new service. Check the API deployment logs for the migration completion
+   message, then verify `/api/healthz` returns HTTP `200`.
+4. For a newly created, empty Neon database, run the one-time production seed
+   from section 3. Do not add the seed command to the Render build or start
+   commands. If this database already contains catalog data, do not seed it.
+5. For an existing database that already has tables but no matching Drizzle
+   migration history, reconcile its schema and migration history before
+   deploying. Do not treat an existing table as proof that its migration was
+   recorded; the initial migration is not designed to adopt an untracked schema.
+6. Create the Static Site in Render so both assigned service URLs are available.
+7. Set the API's `FRONTEND_ORIGINS` to the exact Static Site origin. Set the
    Static Site's `VITE_API_BASE_URL` to the API origin and
    `VITE_REQUIRE_API_BASE_URL=true`. Redeploy both services after setting these
    values.
-5. Confirm `/api/healthz` returns HTTP `200`; open the Static Site and verify
-   product browsing and direct navigation to `/catalog` and `/admin/login`.
-6. Provision the administrator using the guarded procedure below.
-7. Sign in at `/admin/login` and open **Settings**. Set the store name, currency,
+8. Open the Static Site and verify product browsing and direct navigation to
+   `/catalog` and `/admin/login`.
+9. Provision the administrator using the separate guarded procedure below; this
+   remains a one-time manual action and is not part of routine migrations.
+10. Sign in at `/admin/login` and open **Settings**. Set the store name, currency,
    delivery fee, and support email and/or phone. If offering WhatsApp inquiries,
    turn on **Offer WhatsApp as an alternative checkout inquiry** and enter a
    valid international number with its country code (for example,
@@ -284,7 +351,7 @@ JavaScript.
 
 | Variable | Service / command | Required? | Secret? | Purpose |
 | --- | --- | --- | --- | --- |
-| `DATABASE_URL` | API, migrations, admin provisioning, development seed | Yes for database access | Yes | Neon PostgreSQL connection string; use TLS and the pooled runtime URL where appropriate. |
+| `DATABASE_URL` | API, migrations, admin provisioning, initial seed | Yes for database access | Yes | Neon PostgreSQL connection string; use TLS and the pooled runtime URL where appropriate. |
 | `FRONTEND_ORIGINS` | API Web Service | Yes in production | No | Exact HTTPS frontend origin(s), comma-separated, with no path. |
 | `FRONTEND_ORIGIN` | API Web Service | Optional legacy alias | No | Legacy single-origin fallback; prefer `FRONTEND_ORIGINS`. |
 | `NODE_ENV` | API Web Service and one-off scripts | Set to `production` on Render | No | Enables production cookie/security behavior and guards production-only admin setup. |
@@ -292,13 +359,9 @@ JavaScript.
 | `LOG_LEVEL` | API Web Service | Optional | No | Pino log level; defaults to `info`. |
 | `VITE_API_BASE_URL` | Static Site build | Yes for separate Render services | No | Public API origin, without `/api` or a trailing slash. |
 | `VITE_REQUIRE_API_BASE_URL` | Static Site build | Set to `true` for Render | No | Fails the build when the separate API origin is missing or malformed. |
-| `BASE_PATH` | Vite build / Replit workflow | Optional; `/` for Render root | No | Base path for app assets and client routes. |
-| `REPL_ID` | Replit development only | No | No | Enables Replit-only development plugins; Render does not need it. |
+| `BASE_PATH` | Vite build | Optional; `/` for Render root | No | Base path for app assets and client routes. |
 | `RANG_ADMIN_PROVISION_CONFIRM` | One-off administrator provisioning | Yes for that command | No | Must be `production` to confirm the guarded production administrator command; do not save it in Render. |
-| `RANG_DEMO_SEED_CONFIRM` | One-off development seed | Yes for that command | No | Must be `development`; the seed also requires `NODE_ENV=development` and must never target production. |
-
-`GIT_URL` is not an application variable. Only create it as a Replit Secret if
-the GitHub PAT procedure above is required, and remove or rotate it when done.
+| `RANG_INITIAL_SEED_CONFIRM` | One-time initial storefront seed | Yes for that command | No | Must match `NODE_ENV` (`development` or `production`); never configure it as a Render service variable. |
 
 `.env.example` contains placeholders only. `.gitignore` excludes `.env` files
 and local secrets. Do not commit a real connection string, password, or local
@@ -360,9 +423,10 @@ cannot replace a password on an existing account.
 - Push the reviewed changes to GitHub. Render rebuilds the API Web Service and
   Static Site.
 - If a change adds a database column or index, generate and commit its Drizzle
-  migration, back up production, run `pnpm --filter @workspace/db run migrate`
-  against Neon, then deploy the code that uses it. Migrations are not run on
-  API startup.
+  migration. The Render API build command applies pending migrations after a
+  successful API build and before the new service starts. Back up production
+  before schema changes, and keep migrations compatible with the currently
+  running API. Migrations are not run on API startup.
 - If the API returns `503` at `/api/healthz`, check the API logs, `DATABASE_URL`,
   Neon status, connection limit, and TLS requirement.
 - If the frontend shows a connection error or CORS failure, check
@@ -391,9 +455,11 @@ From a clean checkout:
 ```sh
 pnpm install --frozen-lockfile
 pnpm run typecheck
-pnpm --filter @workspace/api-server run build
-pnpm --filter @workspace/rang-auto-parts run build
+pnpm run build
+pnpm --filter @workspace/scripts run test
+pnpm --filter @workspace/db run test:migrations
 pnpm --filter @workspace/api-server run test
+pnpm --filter @workspace/rang-auto-parts run test
 ```
 
 Configure the required database and service variables before running the API.

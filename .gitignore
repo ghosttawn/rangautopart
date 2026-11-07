@@ -51,6 +51,7 @@ node_modules
 
 # misc
 /.sass-cache
+/generated-artifacts/
 /connect.lock
 /coverage
 /libpeerconnection.log
