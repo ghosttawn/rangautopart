@@ -90,7 +90,11 @@ app.use(
       return;
     }
     const allowed = isAllowedOrigin(origin, req);
-    callback(null, { origin: allowed, credentials: allowed });
+    callback(null, {
+      origin: allowed,
+      credentials: allowed,
+      exposedHeaders: ["x-auth-token"],
+    });
   }),
 );
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));

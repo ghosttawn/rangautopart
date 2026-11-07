@@ -27,7 +27,8 @@ export const GetAuthSessionResponse = zod.object({
   "phone": zod.string().nullish(),
   "role": zod.enum(['customer', 'staff', 'admin'])
 }),zod.null()]),
-  "expiresAt": zod.coerce.date().nullable()
+  "expiresAt": zod.coerce.date().nullable(),
+  "token": zod.string().optional()
 })
 
 
@@ -58,7 +59,8 @@ export const RegisterAccountResponse = zod.object({
   "phone": zod.string().nullish(),
   "role": zod.enum(['customer', 'staff', 'admin'])
 }),zod.null()]),
-  "expiresAt": zod.coerce.date().nullable()
+  "expiresAt": zod.coerce.date().nullable(),
+  "token": zod.string().optional()
 })
 
 
@@ -84,7 +86,8 @@ export const LoginAccountResponse = zod.object({
   "phone": zod.string().nullish(),
   "role": zod.enum(['customer', 'staff', 'admin'])
 }),zod.null()]),
-  "expiresAt": zod.coerce.date().nullable()
+  "expiresAt": zod.coerce.date().nullable(),
+  "token": zod.string().optional()
 })
 
 

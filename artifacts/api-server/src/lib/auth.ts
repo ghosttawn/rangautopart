@@ -103,7 +103,7 @@ export function getAuthCookieToken(req: Request): string | null {
 export async function createAuthSession(
   res: Response,
   userId: string,
-): Promise<Date> {
+): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   await db.insert(authSessionsTable).values({
@@ -112,7 +112,8 @@ export async function createAuthSession(
     expiresAt,
   });
   setAuthCookie(res, token);
-  return expiresAt;
+  res.setHeader("X-Auth-Token", token);
+  return { token, expiresAt };
 }
 
 export async function revokeAuthSession(req: Request): Promise<void> {
@@ -130,7 +131,7 @@ export async function revokeUserSessions(userId: string): Promise<void> {
 export async function findAuthSession(
   req: Request,
   res?: Response,
-): Promise<{ user: User; expiresAt: Date } | null> {
+): Promise<{ user: User; expiresAt: Date; token: string } | null> {
   const token = getAuthCookieToken(req);
   if (!token) return null;
   const now = new Date();
@@ -162,9 +163,9 @@ export async function findAuthSession(
       .set({ expiresAt })
       .where(eq(authSessionsTable.id, session.sessionId));
     if (res) setAuthCookie(res, token);
-    return { user: session.user, expiresAt };
+    return { user: session.user, expiresAt, token };
   }
-  return { user: session.user, expiresAt: session.expiresAt };
+  return { user: session.user, expiresAt: session.expiresAt, token };
 }
 
 export async function clearExpiredAuthRecords(): Promise<void> {

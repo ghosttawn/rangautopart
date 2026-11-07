@@ -263,7 +263,7 @@ export function AccountPage() {
       {passwordSaved&&<p className="notice wide" role="status" data-testid="status-password-updated">Your password has been changed.</p>}
       <button className="btn wide" disabled={changePassword.isPending} data-testid="button-change-password">{changePassword.isPending?'Updating password…':'Change password'}</button>
     </form></section>
-    <div style={{marginTop:25,display:'flex',gap:10,flexWrap:'wrap'}}><Link href="/orders" className="btn btn-outline" data-testid="link-my-orders">View my orders <ArrowRight size={15}/></Link><button className="btn btn-outline" disabled={logout.isPending} onClick={()=>logout.mutate(undefined,{onSuccess:()=>{qc.removeQueries({predicate:q=>['/api/account','/api/cart','/api/customer','/api/admin'].some(part=>JSON.stringify(q.queryKey).includes(part))});void qc.invalidateQueries({queryKey:getGetAuthSessionQueryKey()});setLocation('/')}})} data-testid="button-sign-out">{logout.isPending?'Signing out…':'Sign out'}</button></div>
+    <div style={{marginTop:25,display:'flex',gap:10,flexWrap:'wrap'}}><Link href="/orders" className="btn btn-outline" data-testid="link-my-orders">View my orders <ArrowRight size={15}/></Link><button className="btn btn-outline" disabled={logout.isPending} onClick={()=>logout.mutate(undefined,{onSuccess:()=>{try{localStorage.removeItem('rang_auth_token');}catch{}qc.removeQueries({predicate:q=>['/api/account','/api/cart','/api/customer','/api/admin'].some(part=>JSON.stringify(q.queryKey).includes(part))});void qc.invalidateQueries({queryKey:getGetAuthSessionQueryKey()});setLocation('/')}})} data-testid="button-sign-out">{logout.isPending?'Signing out…':'Sign out'}</button></div>
   </div></PageFrame>;
 }
 

@@ -43,6 +43,9 @@ export function SignInPage({ admin = false }: { admin?: boolean }) {
   const submit = (event: FormEvent) => {
     event.preventDefault(); setMessage('');
     login.mutate({ data: { email: email.trim(), password } }, { onSuccess: session => {
+      if (session && 'token' in session && typeof (session as { token?: string }).token === 'string') {
+        try { localStorage.setItem('rang_auth_token', (session as { token: string }).token); } catch {}
+      }
       clearPrivateCache(client);
       client.setQueryData(getGetAuthSessionQueryKey(), session);
       void client.invalidateQueries({ queryKey: getGetAuthSessionQueryKey() });
@@ -71,6 +74,9 @@ export function SignUpPage() {
   const submit = (event: FormEvent) => {
     event.preventDefault(); setMessage('');
     register.mutate({ data: { ...form, email: form.email.trim() } }, { onSuccess: session => {
+      if (session && 'token' in session && typeof (session as { token?: string }).token === 'string') {
+        try { localStorage.setItem('rang_auth_token', (session as { token: string }).token); } catch {}
+      }
       clearPrivateCache(client);
       client.setQueryData(getGetAuthSessionQueryKey(), session);
       void client.invalidateQueries({ queryKey: getGetAuthSessionQueryKey() });

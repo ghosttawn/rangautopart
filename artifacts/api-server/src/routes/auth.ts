@@ -62,10 +62,11 @@ function publicUser(user: {
   };
 }
 
-function sessionResponse(user: Parameters<typeof publicUser>[0] | null, expiresAt: Date | null) {
+function sessionResponse(user: Parameters<typeof publicUser>[0] | null, expiresAt: Date | null, token?: string) {
   return GetAuthSessionResponse.parse({
     user: user ? publicUser(user) : null,
     expiresAt,
+    token,
   });
 }
 
@@ -73,7 +74,7 @@ router.get("/auth/session", async (req, res): Promise<void> => {
   const session = await findAuthSession(req, res);
   res
     .setHeader("Cache-Control", "no-store")
-    .json(sessionResponse(session?.user ?? null, session?.expiresAt ?? null));
+    .json(sessionResponse(session?.user ?? null, session?.expiresAt ?? null, session?.token));
 });
 
 router.post("/auth/register", authRateLimit, async (req, res): Promise<void> => {
@@ -117,11 +118,12 @@ router.post("/auth/register", authRateLimit, async (req, res): Promise<void> => 
     throw error;
   }
   if (!user) throw new Error("Account could not be created.");
-  const expiresAt = await createAuthSession(res, user.id);
+  const { token, expiresAt } = await createAuthSession(res, user.id);
   res.status(201).json(
     RegisterAccountResponse.parse({
       user: publicUser(user),
       expiresAt,
+      token,
     }),
   );
 });
@@ -140,11 +142,12 @@ router.post("/auth/login", authRateLimit, async (req, res): Promise<void> => {
   }
 
   await clearExpiredAuthRecords();
-  const expiresAt = await createAuthSession(res, user.id);
+  const { token, expiresAt } = await createAuthSession(res, user.id);
   res.json(
     LoginAccountResponse.parse({
       user: publicUser(user),
       expiresAt,
+      token,
     }),
   );
 });

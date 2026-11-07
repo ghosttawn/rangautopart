@@ -101,6 +101,7 @@ export interface AuthSession {
   user: AuthUser | null;
   /** @nullable */
   expiresAt: string | null;
+  token?: string;
 }
 
 export interface RegisterInput {
