@@ -65,29 +65,39 @@ export async function verifyPassword(
 }
 
 export function setAuthCookie(res: Response, token: string): void {
+  const isProduction = process.env.NODE_ENV === "production";
   res.cookie(AUTH_COOKIE, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
     path: "/",
     maxAge: SESSION_TTL_MS,
   });
 }
 
 export function clearAuthCookie(res: Response): void {
+  const isProduction = process.env.NODE_ENV === "production";
   res.clearCookie(AUTH_COOKIE, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
     path: "/",
   });
 }
 
 export function getAuthCookieToken(req: Request): string | null {
   const token = req.cookies?.[AUTH_COOKIE];
-  return typeof token === "string" && /^[A-Za-z0-9_-]{40,100}$/.test(token)
-    ? token
-    : null;
+  if (typeof token === "string" && /^[A-Za-z0-9_-]{40,100}$/.test(token)) {
+    return token;
+  }
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+    const bearer = authHeader.slice(7).trim();
+    if (/^[A-Za-z0-9_-]{40,100}$/.test(bearer)) {
+      return bearer;
+    }
+  }
+  return null;
 }
 
 export async function createAuthSession(
