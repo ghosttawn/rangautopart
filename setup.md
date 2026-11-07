@@ -3,7 +3,9 @@
 This guide covers the portable source export, local setup, safe first-time
 storefront seeding, and deployment to a separate Render API and Static Site
 backed by Neon. The committed seed recreates the current catalog and images; it
-does not create customer accounts, orders, or an administrator.
+does not create customer accounts or orders. The initial administrator is
+created automatically by the API from the `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+environment variables (see section 8).
 
 ## 1. Project contents and prerequisites
 
@@ -182,7 +184,9 @@ unset DATABASE_URL
 For a fresh local or disposable development database, use the same script with
 `NODE_ENV=development` and `RANG_INITIAL_SEED_CONFIRM=development`, as shown in
 the local setup section. The seed does not create customers, orders, or an
-administrator; create the first administrator separately after deployment.
+administrator. The administrator is created automatically by the API at startup
+from the `ADMIN_EMAIL`/`ADMIN_PASSWORD` environment variables (section 8); in
+development, when both are unset, a documented development fallback is used.
 
 ## 4. Render API Web Service
 
@@ -202,6 +206,13 @@ Set these API Web Service environment variables in Render:
 | `FRONTEND_ORIGINS` | Exact Static Site origin(s), comma-separated, without paths | No |
 | `NODE_ENV` | Set to `production` | No |
 | `PORT` | Render supplies this; do not hardcode it | No |
+| `ADMIN_EMAIL` | Initial administrator email; created automatically on first startup | No |
+| `ADMIN_PASSWORD` | Initial administrator password (at least 12 characters) | Yes |
+
+`ADMIN_EMAIL` and `ADMIN_PASSWORD` are used only to create the initial
+administrator the first time the API starts against a database that has no
+administrator. After that they are ignored, so changing or removing them never
+alters an existing administrator (see section 8).
 
 The service listens on `0.0.0.0` using Render's `PORT`. The health endpoint
 checks PostgreSQL and returns `503` if the database cannot be reached. Do not
@@ -281,12 +292,15 @@ Use this order:
 
 1. Create the Neon database and copy its pooled TLS connection string.
 2. Create the API Web Service and add the connection string as its
-   `DATABASE_URL` secret. Set `NODE_ENV=production` and the other required API
-   environment variables from section 4 before deploying.
+   `DATABASE_URL` secret. Set `NODE_ENV=production`, the `FRONTEND_ORIGINS`
+   placeholder, and the initial administrator credentials `ADMIN_EMAIL` and
+   `ADMIN_PASSWORD` from section 4 before deploying.
 3. Deploy the API. Render installs dependencies, builds the API, and
    automatically applies pending migrations using `DATABASE_URL` before starting
-   the new service. Check the API deployment logs for the migration completion
-   message, then verify `/api/healthz` returns HTTP `200`.
+   the new service. When the service starts, it also creates the initial
+   administrator from `ADMIN_EMAIL`/`ADMIN_PASSWORD` if none exists. Check the API
+   deployment logs for the migration completion message and the administrator
+   bootstrap log line, then verify `/api/healthz` returns HTTP `200`.
 4. For a newly created, empty Neon database, run the one-time production seed
    from section 3. Do not add the seed command to the Render build or start
    commands. If this database already contains catalog data, do not seed it.
@@ -301,9 +315,11 @@ Use this order:
    values.
 8. Open the Static Site and verify product browsing and direct navigation to
    `/catalog` and `/admin/login`.
-9. Provision the administrator using the separate guarded procedure below; this
-   remains a one-time manual action and is not part of routine migrations.
-10. Sign in at `/admin/login` and open **Settings**. Set the store name, currency,
+9. Sign in at `/admin/login` with the `ADMIN_EMAIL` and `ADMIN_PASSWORD` you
+   configured. The account already holds the highest administrator role; no
+   manual provisioning step is required. Change the password from **Account**
+   settings right after the first sign-in.
+10. Open **Settings**. Set the store name, currency,
    delivery fee, and support email and/or phone. If offering WhatsApp inquiries,
    turn on **Offer WhatsApp as an alternative checkout inquiry** and enter a
    valid international number with its country code (for example,
@@ -356,11 +372,13 @@ JavaScript.
 | `FRONTEND_ORIGIN` | API Web Service | Optional legacy alias | No | Legacy single-origin fallback; prefer `FRONTEND_ORIGINS`. |
 | `NODE_ENV` | API Web Service and one-off scripts | Set to `production` on Render | No | Enables production cookie/security behavior and guards production-only admin setup. |
 | `PORT` | API Web Service | Render-supplied | No | Port assigned by Render; the API binds to `0.0.0.0:$PORT`. |
+| `ADMIN_EMAIL` | API Web Service (initial administrator) | Yes in production until an administrator exists | No | Email of the initial administrator, created automatically once when no administrator exists. |
+| `ADMIN_PASSWORD` | API Web Service (initial administrator) | Yes in production until an administrator exists | Yes | Password (12–128 characters) for the initial administrator; hashed before storage. |
 | `LOG_LEVEL` | API Web Service | Optional | No | Pino log level; defaults to `info`. |
 | `VITE_API_BASE_URL` | Static Site build | Yes for separate Render services | No | Public API origin, without `/api` or a trailing slash. |
 | `VITE_REQUIRE_API_BASE_URL` | Static Site build | Set to `true` for Render | No | Fails the build when the separate API origin is missing or malformed. |
 | `BASE_PATH` | Vite build | Optional; `/` for Render root | No | Base path for app assets and client routes. |
-| `RANG_ADMIN_PROVISION_CONFIRM` | One-off administrator provisioning | Yes for that command | No | Must be `production` to confirm the guarded production administrator command; do not save it in Render. |
+| `RANG_ADMIN_PROVISION_CONFIRM` | One-off administrator provisioning / recovery | Yes for that command | No | Must be `production` to confirm the guarded production administrator command; do not save it in Render. |
 | `RANG_INITIAL_SEED_CONFIRM` | One-time initial storefront seed | Yes for that command | No | Must match `NODE_ENV` (`development` or `production`); never configure it as a Render service variable. |
 
 `.env.example` contains placeholders only. `.gitignore` excludes `.env` files
@@ -369,31 +387,102 @@ database dump.
 
 ## 8. Secure initial administrator
 
-There is no public admin-registration route or default production password.
-Provision the intended account from a trusted checkout, using the production
-Neon connection string only in a private terminal prompt:
+There is no public admin-registration route and no default production password.
+The initial administrator is created **automatically** by the API. You do not
+need a script, a terminal, or direct database access.
+
+### Where to enter the credentials in Render
+
+In the Render dashboard, open the API **Web Service** → **Environment** tab and
+add two variables, then save (Render redeploys automatically):
+
+| Key | Value |
+| --- | --- |
+| `ADMIN_EMAIL` | The administrator's real email address, for example `owner@example.com` |
+| `ADMIN_PASSWORD` | A strong password of at least 12 characters |
+
+Keep `ADMIN_PASSWORD` as a secret value. Do not put either value in a `VITE_`
+variable, in GitHub, or in a ticket.
+
+### How the initial administrator is created automatically
+
+On every start the API checks whether any account has the `admin` role:
+
+- **No administrator exists and both variables are set:** the API creates one
+  administrator account with the configured email, the highest administrator
+  role, and the password hashed with the existing scrypt scheme. No plaintext
+  password is ever stored. This runs after the Render build has applied the
+  database migrations, so it also works on a brand-new empty Neon database.
+- **An administrator already exists:** the API leaves it completely unchanged.
+  The variables are ignored from then on.
+- **No administrator exists and the variables are missing (production):** the
+  API refuses to start and logs a clear error naming `ADMIN_EMAIL` and
+  `ADMIN_PASSWORD`, rather than starting without an accessible administrator.
+- **No administrator exists and the variables are missing (development):** the
+  API creates a development administrator using the documented fallback
+  `admin@rang-auto-parts.test` / `rang-development-admin`. This fallback is
+  never used when `NODE_ENV=production`.
+
+The bootstrap is idempotent. It is guarded by a PostgreSQL advisory lock, only
+inserts when no administrator exists, and never updates an existing account, so
+it cannot create duplicates or reset a password.
+
+### How to log in after the first deployment
+
+1. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before the first deploy (section 4).
+2. After the deploy succeeds, open `https://<storefront-host>/admin/login`.
+3. Sign in with the email and password you configured.
+4. Change the password immediately from **Account** settings.
+
+### How to change administrator credentials
+
+Sign in and open **Account**:
+
+- **Change password:** enter the current password and a new password (12–128
+  characters). This revokes other sessions and keeps you signed in.
+- **Change email:** enter the new email and confirm your current password. An
+  email already used by another account is rejected.
+
+Both changes are stored in the database and remain effective after any
+redeploy. Because the bootstrap only runs when no administrator exists, later
+changes to `ADMIN_EMAIL`/`ADMIN_PASSWORD` in Render do not overwrite the account.
+
+### How to recover access if credentials are lost
+
+Password-recovery email is not configured in this project, so a deliberate,
+guarded recovery command is provided. It only runs when you explicitly pass the
+`recover` mode and the confirmation variable, so it can never change
+credentials during a normal deployment. Run it from a trusted checkout, entering
+the production Neon connection string only at the private prompt:
 
 ```sh
 read -rsp "Neon DATABASE_URL: " DATABASE_URL
 echo
 export DATABASE_URL
 NODE_ENV=production RANG_ADMIN_PROVISION_CONFIRM=production \
-  pnpm --filter @workspace/api-server run provision-admin -- admin@example.com
+  pnpm --filter @workspace/api-server run provision-admin -- admin@example.com recover
 unset DATABASE_URL
 ```
 
-Replace `admin@example.com` with the authorized administrator's real address.
-The command refuses an account that already has a password, never overwrites
-one, and revokes old sessions if it promotes an existing passwordless account.
-It prints a random one-time password once. Keep that output private, sign in at
-`/admin/login`, and immediately change the password from **Account**. Email
-changes also require the current password. Do not put the temporary password in
-Render logs, a ticket, or GitHub.
+Replace `admin@example.com` with the existing administrator's email. The command
+resets that account's password to a new random one-time password, keeps the
+`admin` role, and revokes all of its sessions. It prints the temporary password
+once; keep it private, sign in at `/admin/login`, and change it immediately.
 
-For a lost admin password, use the configured recovery email only after an
-email-delivery provider is implemented. Until then, an authorized operator can
-use this guarded CLI to provision a new account with a different email; it
-cannot replace a password on an existing account.
+To create a brand-new administrator instead (for example with a different email
+on an installation that has none), run the same command **without** `recover`.
+It refuses an email that already has a password and never overwrites an
+existing account.
+
+### What happens when the application is redeployed
+
+- The Render build applies any pending database migrations, then the API starts
+  and runs the bootstrap.
+- If an administrator already exists, the bootstrap is a no-op: it does not
+  create duplicates and does not reset the email or password. Administrator
+  changes made in the dashboard are preserved.
+- You can safely leave, change, or remove `ADMIN_EMAIL`/`ADMIN_PASSWORD` after
+  the first administrator exists; they are ignored.
 
 ## 9. Verify the deployment
 
@@ -417,6 +506,10 @@ cannot replace a password on an existing account.
    the API request fails.
 7. Test direct navigation and refresh on `/catalog`, `/cart`, `/checkout`, and
    `/admin/login` to confirm the Static Site rewrite is active.
+8. Confirm the initial administrator: sign in at
+   `https://<storefront-host>/admin/login` with the configured `ADMIN_EMAIL` and
+   `ADMIN_PASSWORD`, and confirm the admin dashboard loads with full access.
+   Then change the password from **Account** and confirm sign-in still works.
 
 ## 10. Deploy future changes and troubleshoot
 
@@ -426,7 +519,11 @@ cannot replace a password on an existing account.
   migration. The Render API build command applies pending migrations after a
   successful API build and before the new service starts. Back up production
   before schema changes, and keep migrations compatible with the currently
-  running API. Migrations are not run on API startup.
+  running API. Migrations are not run on API startup, but the idempotent
+  administrator bootstrap is run at startup after those migrations.
+- If the API fails to start with an `Administrator bootstrap failed` message,
+  set `ADMIN_EMAIL` and `ADMIN_PASSWORD` on the API Web Service (Environment tab)
+  and redeploy; the message names the missing or invalid variables. See section 8.
 - If the API returns `503` at `/api/healthz`, check the API logs, `DATABASE_URL`,
   Neon status, connection limit, and TLS requirement.
 - If the frontend shows a connection error or CORS failure, check
