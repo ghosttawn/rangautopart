@@ -1,16 +1,10 @@
 import { spawnSync } from "node:child_process";
 
-if (process.env.RENDER !== "true") {
-  throw new Error("Render build is only allowed to run on Render.");
-}
-
-if (process.env.NODE_ENV !== "production") {
-  throw new Error("Render build requires NODE_ENV=production.");
-}
-
-if (!process.env.DATABASE_URL) {
-  throw new Error("Render build requires the API service DATABASE_URL secret.");
-}
+// Render-specific build entrypoint. It builds the workspace and, when a
+// database URL is available at build time, applies migrations early for fast
+// feedback. Migrations are NOT required here: the API applies any pending
+// migrations at startup, so a build without database access still succeeds and
+// the deployment stays correct.
 
 function runPnpm(args) {
   const result = spawnSync("pnpm", args, {
@@ -31,4 +25,19 @@ function runPnpm(args) {
 }
 
 runPnpm(["run", "build"]);
-runPnpm(["--filter", "@workspace/db", "run", "migrate"]);
+
+if (process.env.DATABASE_URL) {
+  try {
+    runPnpm(["--filter", "@workspace/db", "run", "migrate"]);
+  } catch (error) {
+    // Do not fail the build on a migration error: the API applies migrations at
+    // startup and surfaces a clear error there if the database is unreachable.
+    console.warn(
+      `Build-time migration skipped: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+} else {
+  console.warn(
+    "DATABASE_URL is not set at build time; skipping build-time migrations. The API applies migrations at startup.",
+  );
+}

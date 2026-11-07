@@ -9,7 +9,7 @@ import {
   initialProducts,
   initialSeedKey,
   initialStoreSettings,
-} from "../src/initial-storefront-data.ts";
+} from "../../lib/db/src/seed/initial-storefront-data.ts";
 import { assertInitialSeedIntent } from "../src/seed-storefront-guard.ts";
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));

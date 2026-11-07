@@ -16,10 +16,11 @@ export * from "./admin-bootstrap-policy";
 /**
  * Automatic initial-administrator bootstrap.
  *
- * The API calls {@link ensureInitialAdmin} once at startup, after the Render
- * build has already applied the database migrations. It runs on every start
- * but only ever creates an administrator when none exists yet, so redeploys
- * never duplicate or overwrite an existing administrator.
+ * The API calls {@link ensureInitialAdmin} once at startup, immediately after
+ * {@link initializeDatabase} has applied the database migrations and verified
+ * the schema. It runs on every start but only ever creates an administrator
+ * when none exists yet, so redeploys never duplicate or overwrite an existing
+ * administrator.
  */
 
 // Transaction-level advisory lock that serializes the bootstrap across

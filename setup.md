@@ -1,11 +1,15 @@
 # RANG Auto Parts: portable setup and Render + Neon deployment
 
-This guide covers the portable source export, local setup, safe first-time
-storefront seeding, and deployment to a separate Render API and Static Site
-backed by Neon. The committed seed recreates the current catalog and images; it
-does not create customer accounts or orders. The initial administrator is
-created automatically by the API from the `ADMIN_EMAIL` and `ADMIN_PASSWORD`
-environment variables (see section 8).
+This guide covers the portable source export, local setup, automatic database
+initialization, and deployment to a separate Render API and Static Site backed
+by Neon. When the API starts, it initializes the database by itself: it verifies
+the connection, applies pending migrations, verifies the schema, and safely
+populates the initial storefront when the catalog is empty. The initial
+administrator is created automatically by the API from the `ADMIN_EMAIL` and
+`ADMIN_PASSWORD` environment variables (see section 8). A fresh Neon database
+therefore becomes a usable application database through the normal Render
+deployment with no terminal, manual SQL, or separate migration command. The
+storefront seed does not create customer accounts or orders.
 
 ## 1. Project contents and prerequisites
 
@@ -35,14 +39,17 @@ pnpm install --frozen-lockfile
 
 Set `DATABASE_URL` in your shell to a local PostgreSQL database or a disposable
 Neon development branch. Do not use a production connection string for local
-testing. Apply the committed migrations:
+testing. Starting the API applies any pending migrations and seeds the
+storefront automatically (see section 3), so no separate steps are required.
+The committed migrations and the seed are also available as explicit one-off
+commands if you prefer to prepare the database before starting the API:
 
 ```sh
 pnpm --filter @workspace/db run migrate
 ```
 
-To recreate the initial storefront in an empty local database, explicitly
-confirm the development seed:
+To recreate the initial storefront in an empty local database without starting
+the API, explicitly confirm the development seed:
 
 ```sh
 NODE_ENV=development RANG_INITIAL_SEED_CONFIRM=development \
@@ -110,17 +117,41 @@ instance. Neon usage and limits can still depend on traffic, queries, storage,
 and egress; monitor the Neon dashboard and scale or reduce traffic if limits
 are approached.
 
-## 3. Apply schema migrations
+## 3. Automatic migrations, schema check, and initial seed
 
-The Render API build command in the next section builds the API, then applies
-pending Drizzle migrations using the API service's production `DATABASE_URL`.
-This works on Render's Free plan and does not require a terminal or a paid-only
-pre-deploy command. The migration runner takes a PostgreSQL transaction-level
-advisory lock, checks Drizzle's migration history, and applies pending SQL in a
-transaction before the new API starts. Already-recorded migrations are skipped.
-If a migration fails, the transaction rolls back and the build fails rather
-than starting the new API with an incomplete schema. The Static Site build does
-not connect to Neon or run migrations.
+Database initialization is automatic. When the API process starts it runs the
+following sequence before it accepts any request, using the API service's
+production `DATABASE_URL`:
+
+1. verify the connection to the configured PostgreSQL database;
+2. discover and apply every pending Drizzle migration in order;
+3. verify that the required tables exist;
+4. safely populate the initial storefront when the catalog is empty;
+5. provision the initial administrator from `ADMIN_EMAIL`/`ADMIN_PASSWORD`
+   (section 8);
+6. start serving normal application requests.
+
+Every step is idempotent, so the same path is safe for a fresh deployment, a
+backend restart, a subsequent deployment, and a fresh database
+initialization. If any step fails, the API logs the reason (without printing
+the connection string) and exits with a non-zero status instead of serving
+requests against an incomplete schema.
+
+The Render API build command (section 4) also attempts migrations at build
+time when `DATABASE_URL` is set, as a fast-feedback optimization. This is
+best-effort and never required: a build without database access still succeeds,
+because the API applies any pending migrations at startup. The Static Site
+build never connects to Neon.
+
+The migration runner takes a PostgreSQL transaction-level advisory lock, reads
+Drizzle's migration history (`drizzle.__drizzle_migrations`), and applies
+pending SQL in order inside a transaction. Already-recorded migrations are
+skipped, and a failing migration rolls back and prevents the API from starting.
+The deployed API bundle is self-contained: the build copies the migration SQL
+and the catalog image fixtures into `artifacts/api-server/dist`, next to the
+bundled server. Review and commit generated migration SQL and metadata together
+whenever the schema changes. Back up production before any schema change; do
+not use `push` or `push-force` against production.
 
 No manual migration command is needed for a fresh Neon database or subsequent
 Render API deployments. The following guarded command remains available for a
@@ -137,42 +168,50 @@ unset DATABASE_URL
 ```
 
 `migrate` applies the committed, ordered Drizzle SQL migrations, including
-`lib/db/drizzle/0000_sloppy_cargill.sql` and later migrations. It skips
-migrations already recorded in Drizzle's history and uses the same lock and
-transaction behavior as the Render build. Review and commit generated migration
-SQL and metadata together whenever the schema changes. Back up production
-before any schema change; do not use `push` or `push-force` against production.
+`lib/db/drizzle/0000_sloppy_cargill.sql` and later migrations. It uses the same
+lock and transaction behavior as the API startup path.
 
 For a database that already contains tables or was previously managed with
-schema pushes, pause before applying the migrations. Compare its schema and
+schema pushes, pause before the first startup against it. Compare its schema and
 `drizzle.__drizzle_migrations` history with the committed SQL first; do not
-assume an existing table means its migration was recorded. Do this check before
-enabling the automatic Render migration command on an existing database.
+assume an existing table means its migration was recorded.
 
-### One-time initial storefront seed
+### Automatic initial storefront seed
 
-The committed initial seed recreates the current storefront population: five
-categories, eight products, their prices, descriptions, specifications, stock,
-fitment records, the current store settings and promotions, and the exact JPEG
-images. The image fixtures are in `attached_assets/generated_images`; the seed
-checks each file's SHA-256 hash before writing it. Image bytes are stored in
-PostgreSQL `BYTEA`, then served through the existing image endpoints.
+The initial seed recreates the current storefront population: five categories,
+eight products, their prices, descriptions, specifications, stock, fitment
+records, the current store settings and promotions, and the exact JPEG images.
+The image fixtures are copied into the deployed bundle at build time (from
+`attached_assets/generated_images`); the seed checks each file's SHA-256 hash
+before writing it. Image bytes are stored in PostgreSQL `BYTEA`, then served
+through the existing image endpoints.
 
-The seed is a separate, manual step after migrations. It is not part of the
-Render API build or normal deployments. It requires empty category, product,
-image, fitment, and store-settings tables, and writes all records and its
-completion marker in one transaction. If any of those tables already contain
-data and the marker is missing, it stops without changing the database. Running
-it again after a successful seed is a no-op, so later administrator edits are
-not replaced.
+The seed runs automatically at API startup, right after migrations, and is
+guarded so it only ever applies once:
 
-For a new Neon database, first deploy the API once so Render applies migrations
-and the health check succeeds. Then run this one-time command from a trusted
-checkout. Verify in the Neon console that this is the intended, empty database.
-Enter the connection string at the prompt; do not echo it or put it in shell
-history:
+- It requires empty category, product, image, fitment, and store-settings
+  tables, and writes all records plus its completion marker
+  (`seed_runs` key `rang-initial-storefront-v1`) in one transaction.
+- If the marker already exists, it is a no-op, so later administrator edits are
+  never replaced on a restart or redeploy.
+- If any of those tables already contain data and the marker is missing, it
+  stops without changing the database, so an existing custom catalog is
+  preserved.
+
+A fresh Neon database is therefore seeded automatically during the first API
+startup; no one-time command is required. The same seed is also available as a
+guarded one-off command (useful for pre-seeding a local database). It does not
+create customers, orders, or an administrator. The administrator is created
+automatically by the API at startup from the `ADMIN_EMAIL`/`ADMIN_PASSWORD`
+environment variables (section 8); in development, when both are unset, a
+documented development fallback is used.
+
+To run the seed explicitly against a database without starting the API, first
+verify in the Neon console that this is the intended, empty database, then run
+one of:
 
 ```sh
+# Production database (one-off, trusted checkout)
 read -rsp "New Neon DATABASE_URL: " DATABASE_URL
 echo
 export DATABASE_URL
@@ -181,12 +220,11 @@ NODE_ENV=production RANG_INITIAL_SEED_CONFIRM=production \
 unset DATABASE_URL
 ```
 
-For a fresh local or disposable development database, use the same script with
-`NODE_ENV=development` and `RANG_INITIAL_SEED_CONFIRM=development`, as shown in
-the local setup section. The seed does not create customers, orders, or an
-administrator. The administrator is created automatically by the API at startup
-from the `ADMIN_EMAIL`/`ADMIN_PASSWORD` environment variables (section 8); in
-development, when both are unset, a documented development fallback is used.
+```sh
+# Fresh local or disposable development database
+NODE_ENV=development RANG_INITIAL_SEED_CONFIRM=development \
+  pnpm --filter @workspace/scripts run seed-storefront
+```
 
 ## 4. Render API Web Service
 
@@ -218,15 +256,18 @@ The service listens on `0.0.0.0` using Render's `PORT`. The health endpoint
 checks PostgreSQL and returns `503` if the database cannot be reached. Do not
 mark the API healthy solely because its process has started.
 
-The `render:build` command requires `NODE_ENV=production` and `DATABASE_URL`.
-It builds the API, then takes a transaction-level PostgreSQL advisory lock and
-applies pending migrations from the committed Drizzle history once per Render
-API build—not on every process restart. A migration error is logged without
-printing the database URL, causes the build to fail, and prevents the new
-service version from starting. Keep migrations backward-compatible with the
-currently running API, and review/back up production before introducing any
-destructive schema change. The committed migrations currently create tables
-and add columns; none drops or resets tables or records.
+The `render:build` command always builds the workspace. When `DATABASE_URL` is
+present at build time it also applies pending migrations as a fast-feedback
+optimization; when it is absent, or if that step fails, the build still
+succeeds with a warning. Migrations are applied for real by the API at startup
+(section 3), so a mismatched or missing build-time database configuration can
+no longer leave a running service pointed at an empty database. Migration and
+startup errors are logged without printing the database URL, and a startup
+failure exits with a non-zero status so Render does not report the service
+healthy. Keep migrations backward-compatible with the currently running API,
+and review/back up production before introducing any destructive schema change.
+The committed migrations currently create tables and add columns; none drops or
+resets tables or records.
 
 `FRONTEND_ORIGINS` must match the deployed Static Site origin exactly, including
 the scheme and any custom port. The API rejects cross-origin writes from origins
@@ -295,15 +336,18 @@ Use this order:
    `DATABASE_URL` secret. Set `NODE_ENV=production`, the `FRONTEND_ORIGINS`
    placeholder, and the initial administrator credentials `ADMIN_EMAIL` and
    `ADMIN_PASSWORD` from section 4 before deploying.
-3. Deploy the API. Render installs dependencies, builds the API, and
-   automatically applies pending migrations using `DATABASE_URL` before starting
-   the new service. When the service starts, it also creates the initial
-   administrator from `ADMIN_EMAIL`/`ADMIN_PASSWORD` if none exists. Check the API
-   deployment logs for the migration completion message and the administrator
-   bootstrap log line, then verify `/api/healthz` returns HTTP `200`.
-4. For a newly created, empty Neon database, run the one-time production seed
-   from section 3. Do not add the seed command to the Render build or start
-   commands. If this database already contains catalog data, do not seed it.
+3. Deploy the API. Render installs dependencies and builds the API, then the
+   service starts and initializes the database automatically: it applies any
+   pending migrations, verifies the schema, seeds the initial storefront when
+   the catalog is empty, and creates the initial administrator from
+   `ADMIN_EMAIL`/`ADMIN_PASSWORD` if none exists. Check the API deployment logs
+   for the initialization, seed, and administrator bootstrap messages, then
+   verify `/api/healthz` returns HTTP `200`. No manual migration or seed step is
+   required for a fresh, empty Neon database.
+4. If this database already contains catalog data, the automatic seed safely
+   skips it, so no action is needed. Do not run the optional seed command against
+   a database that already has a catalog. Never add the seed command to the
+   Render build or start commands.
 5. For an existing database that already has tables but no matching Drizzle
    migration history, reconcile its schema and migration history before
    deploying. Do not treat an existing table as proof that its migration was
@@ -411,8 +455,8 @@ On every start the API checks whether any account has the `admin` role:
 - **No administrator exists and both variables are set:** the API creates one
   administrator account with the configured email, the highest administrator
   role, and the password hashed with the existing scrypt scheme. No plaintext
-  password is ever stored. This runs after the Render build has applied the
-  database migrations, so it also works on a brand-new empty Neon database.
+  password is ever stored. This runs after the API has applied the database
+  migrations at startup, so it also works on a brand-new empty Neon database.
 - **An administrator already exists:** the API leaves it completely unchanged.
   The variables are ignored from then on.
 - **No administrator exists and the variables are missing (production):** the
@@ -511,16 +555,34 @@ existing account.
    `ADMIN_PASSWORD`, and confirm the admin dashboard loads with full access.
    Then change the password from **Account** and confirm sign-in still works.
 
+### Verify database readiness
+
+Initialization completes before the API accepts requests, so readiness is simply
+"the API is up". Confirm it directly:
+
+1. In the API deployment logs, look for the initialization messages: the
+   connection is verified, migrations are current, the schema is verified, and
+   the seed reports `seeded`, `already-seeded`, or `skipped-non-empty`.
+2. `GET https://<api-service-host>/api/healthz` returns HTTP `200` with
+   `{"status":"ok"}`; this confirms the API can reach Neon.
+3. `GET https://<api-service-host>/api/storefront` returns the store settings,
+   and the storefront shows products, which confirms the schema exists and the
+   catalog is populated.
+4. If any step failed, the API would have logged the reason and exited rather
+   than serving; a healthy process therefore implies a verified schema.
+
 ## 10. Deploy future changes and troubleshoot
 
 - Push the reviewed changes to GitHub. Render rebuilds the API Web Service and
-  Static Site.
+  Static Site. On startup the API runs the same automatic initialization as a
+  first deploy, so it applies any pending migrations, re-verifies the schema,
+  and re-checks the storefront seed before serving requests. No manual migration
+  or seed step is needed for a subsequent deployment.
 - If a change adds a database column or index, generate and commit its Drizzle
-  migration. The Render API build command applies pending migrations after a
-  successful API build and before the new service starts. Back up production
-  before schema changes, and keep migrations compatible with the currently
-  running API. Migrations are not run on API startup, but the idempotent
-  administrator bootstrap is run at startup after those migrations.
+  migration. The API applies pending migrations at startup (and, best-effort, at
+  build time when `DATABASE_URL` is set). Back up production before schema
+  changes, and keep migrations compatible with the currently running API. The
+  idempotent administrator bootstrap runs at startup after those migrations.
 - If the API fails to start with an `Administrator bootstrap failed` message,
   set `ADMIN_EMAIL` and `ADMIN_PASSWORD` on the API Web Service (Environment tab)
   and redeploy; the message names the missing or invalid variables. See section 8.
@@ -531,8 +593,16 @@ existing account.
   Rebuild the Static Site after changing its API origin.
 - If `/catalog` or another nested page returns `404` on refresh, check the
   Static Site rewrite to `/index.html`.
-- If a migration fails, stop and inspect the migration output and current
-  schema; do not use `push-force` or drop production tables to recover.
+- If a migration fails at startup, the API logs the error (without the database
+  URL) and exits non-zero; Render keeps the previous version or marks the deploy
+  failed. Inspect the API logs and the current schema, then fix or add a
+  corrective migration. Do not use `push-force` or drop production tables to
+  recover. The Static Site may still serve, but requests fail until the API
+  starts.
+- If the API starts but `/api/storefront` or the catalog is empty, check the API
+  logs for the seed messages. A `skipped-non-empty` result means the catalog was
+  not empty and the seed was deliberately skipped; if logs show initialization
+  failed and the API exited, no seed ran. See section 3.
 - Checkout does not use a country or region allowlist. The parts desk confirms
   actual delivery arrangements after an order request is submitted.
 - If the support inbox has no new message, verify the contact form's success
@@ -541,9 +611,10 @@ existing account.
 - If contact links are missing, publish a staffed email address or phone in
   **Settings**. Email delivery for account recovery is not configured by this
   project.
-- Before testing or reseeding, confirm that the command targets a development
-  database. The sample seed is additive and repeatable but must not be run
-  against production.
+- The automatic seed only ever applies to an empty catalog and is a no-op once
+  its `seed_runs` marker exists, so it is safe on production. Still confirm the
+  target database before running the optional manual seed command; do not run it
+  against a production database that already has a catalog.
 
 ## 11. Repository checks
 

@@ -70,3 +70,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Local reference copy of the app (not part of the deployed workspace)
+/RANG-Auto-Parts-Store/

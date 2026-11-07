@@ -3,12 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { cp, rm } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+const workspaceRoot = path.resolve(artifactDir, "../..");
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
@@ -118,6 +119,20 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  // Copy the Drizzle migrations and the catalog image fixtures next to the
+  // bundle so the startup database initialization can apply migrations and seed
+  // the initial storefront without depending on the repository layout at runtime.
+  await cp(
+    path.join(workspaceRoot, "lib/db/drizzle"),
+    path.join(distDir, "drizzle"),
+    { recursive: true },
+  );
+  await cp(
+    path.join(workspaceRoot, "attached_assets/generated_images"),
+    path.join(distDir, "generated_images"),
+    { recursive: true },
+  );
 }
 
 buildAll().catch((err) => {
