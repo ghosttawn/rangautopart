@@ -6,6 +6,7 @@ import { getGetAccountQueryKey, getGetAuthSessionQueryKey, getGetCartQueryKey, u
 import type { CheckoutInput, CheckoutResult, ListProductsParams } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AddCartButton, ApiNotice, EmptyPanel, InlineError, LoadingState, money, PageFrame, ProductCardView, ProductVisual, TrustStrip } from '@/components/store';
+import { toApiUrl } from '@/lib/utils';
 import { buildWhatsAppChatUrl, buildWhatsAppMessage, isValidWhatsAppNumber } from '@/lib/whatsapp';
 
 function openWhatsAppConversation(
@@ -45,7 +46,7 @@ export function HomePage() {
   const [heroFailed,setHeroFailed]=useState(false);
   useEffect(()=>setHeroFailed(false),[store?.settings.heroImageUrl]);
   const settings=store?.settings;
-  const heroImage=heroFailed?'/rang-hero.jpg':settings?.heroImageUrl||'/rang-hero.jpg';
+  const heroImage=heroFailed?'/rang-hero.jpg':toApiUrl(settings?.heroImageUrl)||'/rang-hero.jpg';
   return <PageFrame>
     <section className="hero"><div className="shell hero-grid"><div className="hero-copy">
       <div className="eyebrow" style={{color:'#c6d0c7'}}>RANG AUTO PARTS &nbsp; / &nbsp; BUILT TO FIT YOUR DAY</div>
@@ -54,7 +55,7 @@ export function HomePage() {
     </div></div><img className="hero-photo" src={heroImage} alt="" aria-hidden="true" width="1024" height="1024" fetchPriority="high" onError={()=>setHeroFailed(true)}/></section>
     <TrustStrip/>
     <section className="shell section"><div className="section-heading"><div><div className="eyebrow">Shop by machine</div><h2>Start with your ride.</h2></div><Link href="/catalog" className="header-action" data-testid="link-all-categories">Browse all parts <ArrowRight size={15}/></Link></div>
-      {isLoading?<div className="category-grid">{[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:150}}/>)}</div>:isError?<ApiNotice error={error} onRetry={()=>refetch()}/>:<div className="category-grid">{(store?.categories ?? []).map((cat,i)=><Link href={`/catalog?category=${encodeURIComponent(cat.slug)}`} className="category-tile" key={cat.id} data-testid={`link-category-${cat.id}`}><span>{cat.name}</span><span>{cat.productCount} {cat.productCount===1?'part':'parts'} <ArrowRight size={13}/></span>{cat.imageUrl?<img className="category-tile-photo" src={cat.imageUrl} alt="" aria-hidden="true" loading="lazy"/>:<Wrench size={46}/>}</Link>)}</div>}
+      {isLoading?<div className="category-grid">{[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:150}}/>)}</div>:isError?<ApiNotice error={error} onRetry={()=>refetch()}/>:<div className="category-grid">{(store?.categories ?? []).map((cat,i)=><Link href={`/catalog?category=${encodeURIComponent(cat.slug)}`} className="category-tile" key={cat.id} data-testid={`link-category-${cat.id}`}><span>{cat.name}</span><span>{cat.productCount} {cat.productCount===1?'part':'parts'} <ArrowRight size={13}/></span>{cat.imageUrl?<img className="category-tile-photo" src={toApiUrl(cat.imageUrl) ?? cat.imageUrl} alt="" aria-hidden="true" loading="lazy"/>:<Wrench size={46}/>}</Link>)}</div>}
     </section>
     <section className="shell section" style={{paddingTop:8}}><div className="section-heading"><div><div className="eyebrow">A good place to start</div><h2>Featured parts.</h2></div><Link href="/catalog" className="header-action" data-testid="link-featured-all">View catalog <ArrowRight size={15}/></Link></div>
       {isLoading?<LoadingState/>:isError?<ApiNotice error={error} onRetry={()=>refetch()}/>:products.length?<div className="product-grid">{products.slice(0,8).map(p=><ProductCardView product={p} key={p.id} currency={store?.settings.currency}/>)}</div>:<EmptyPanel title="The shelf is being stocked" body="Featured products will appear here once the catalog has been published." action="Browse catalog" href="/catalog"/>}
@@ -150,8 +151,8 @@ export function ProductPage() {
   if(isLoading)return <PageFrame><LoadingState label="Loading product"/></PageFrame>;
   if(isError||!product)return <PageFrame><div className="shell" style={{padding:'50px 0'}}><ApiNotice error={error} onRetry={()=>refetch()}/></div></PageFrame>;
   const price=product.salePriceMinor??product.priceMinor;
-  const gallery=product.images.map(image=>image.url);
-  const heroImage=gallery[activeImage]||product.imageUrl;
+  const gallery=product.images.map(image=>toApiUrl(image.url) ?? image.url);
+  const heroImage=gallery[activeImage]||(toApiUrl(product.imageUrl) ?? product.imageUrl);
   return <PageFrame><div className="shell" style={{padding:'26px 0 64px'}}><div className="eyebrow" style={{marginBottom:24}}><Link href="/catalog">Catalog</Link> &nbsp;/&nbsp; {product.category||'Part'} &nbsp;/&nbsp; {product.sku}</div>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'clamp(24px,5vw,70px)'}} className="product-detail-grid">
       <div><button type="button" className="product-image detail-visual image-zoom-trigger" onClick={()=>setImageOpen(true)} disabled={!heroImage} aria-label={`View full-size image of ${product.name}`} data-testid="button-open-full-image">{heroImage?<img src={heroImage} alt={product.images[activeImage]?.altText||product.name}/>:<Wrench size={58} color="#8e9b91" strokeWidth={1}/>}</button><dialog ref={imageDialogRef} className="product-image-lightbox" aria-label={`${product.name} full-size image`} onClose={()=>setImageOpen(false)} onClick={event=>{if(event.target===event.currentTarget)setImageOpen(false)}}>{heroImage&&<img src={heroImage} alt={product.images[activeImage]?.altText||product.name}/>}<button type="button" className="btn btn-accent lightbox-close" onClick={()=>setImageOpen(false)} data-testid="button-close-full-image">Close</button></dialog>{gallery.length>1&&<div style={{display:'flex',gap:9,marginTop:10,overflowX:'auto'}}>{gallery.map((url,index)=><button key={url} onClick={()=>setActiveImage(index)} aria-label={`View product image ${index+1}`} aria-pressed={activeImage===index} data-testid={`button-product-image-${index}`} style={{width:68,height:68,padding:0,border:activeImage===index?'2px solid hsl(var(--primary))':'1px solid hsl(var(--border))',background:'transparent',cursor:'pointer',flexShrink:0}}><img src={url} alt={product.images[index]?.altText||`${product.name} view ${index+1}`} style={{width:'100%',height:'100%',objectFit:'contain'}}/></button>)}</div>}<div className="eyebrow" style={{marginTop:12}}>SKU / {product.sku}</div></div>

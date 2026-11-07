@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useGetProduct, useGetStorefront } from "@workspace/api-client-react";
+import { toApiUrl } from "@/lib/utils";
 
 const PUBLIC_META: Record<string, { title: string; description: string }> = {
   "/": {
@@ -106,7 +107,9 @@ export function SeoController() {
     const canonical = setCanonical(isPrivate ? null : path);
     const robots = isPrivate ? "noindex, nofollow" : "index, follow";
     const imagePath =
-      product?.images?.[0]?.url || product?.imageUrl || "/rang-hero.jpg";
+      toApiUrl(product?.images?.[0]?.url) ||
+      toApiUrl(product?.imageUrl) ||
+      "/rang-hero.jpg";
     const image = new URL(imagePath, window.location.origin).toString();
 
     document.title = page.title;
@@ -144,7 +147,7 @@ export function SeoController() {
         },
         image: product.images?.length
           ? product.images.map((item) =>
-              new URL(item.url, window.location.origin).toString(),
+              new URL(toApiUrl(item.url) ?? item.url, window.location.origin).toString(),
             )
           : [image],
         offers: {
