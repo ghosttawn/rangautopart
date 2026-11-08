@@ -294,7 +294,7 @@ export function ContactPage() {
       <div style={{display:'grid',gridTemplateColumns:'1.2fr .8fr',gap:30,paddingBottom:70}} className="checkout-grid">
         <section>
           <h2 className="display">Message the parts desk</h2>
-          <p style={{lineHeight:1.8,color:'hsl(var(--muted-foreground))'}}>Messages are saved in RANG's staff inbox. There is no automatic email receipt.</p>
+          <p style={{lineHeight:1.8,color:'hsl(var(--muted-foreground))'}}>Have a question about a part, order, or vehicle fitment? Send us a message and our team will get back to you shortly.</p>
           <form className="inline-form" onSubmit={submit} data-testid="form-support-message">
             <label className="label">Your name<input className="field" required minLength={2} maxLength={160} autoComplete="name" value={form.name} onChange={event=>updateField('name',event.target.value)} data-testid="input-support-name"/></label>
             <label className="label">Email address<input className="field" required type="email" maxLength={254} autoComplete="email" value={form.email} onChange={event=>updateField('email',event.target.value)} data-testid="input-support-email"/></label>
@@ -302,7 +302,7 @@ export function ContactPage() {
             <label className="label wide">Subject<input className="field" required minLength={3} maxLength={120} value={form.subject} onChange={event=>updateField('subject',event.target.value)} data-testid="input-support-subject"/></label>
             <label className="label wide">How can we help?<textarea className="field" required minLength={10} maxLength={3000} rows={6} value={form.message} onChange={event=>updateField('message',event.target.value)} data-testid="input-support-message"/></label>
             {send.isError&&<div className="wide"><InlineError message={send.error instanceof Error?send.error.message:'Your message could not be saved. Please try again.'}/></div>}
-            {sent&&<p className="notice wide" role="status" data-testid="status-support-message-sent">Your message is saved in the RANG support inbox.</p>}
+            {sent&&<p className="notice wide" role="status" data-testid="status-support-message-sent">Thank you! Your message has been sent to our parts desk. We will get back to you shortly.</p>}
             <button className="btn wide" type="submit" disabled={send.isPending} data-testid="button-send-support-message">{send.isPending?'Saving message…':'Send message'}</button>
           </form>
           <p className="eyebrow" style={{marginTop:14}}>Your message and reply details will be visible to RANG staff so they can respond.</p>
