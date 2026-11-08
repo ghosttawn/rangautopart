@@ -37,12 +37,21 @@ function Router() {
   const priorIdentity = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (!session) return;
+    // Keep localStorage token in sync with the server session.
+    // On page refresh the session query returns the token; re-saving it
+    // ensures the Bearer header is available for subsequent requests even
+    // when the browser has cleared localStorage (e.g. Safari ITP eviction).
+    if (session.user && 'token' in session && typeof (session as { token?: string }).token === 'string') {
+      try { localStorage.setItem('rang_auth_token', (session as { token: string }).token); } catch {}
+    } else if (!session.user) {
+      try { localStorage.removeItem('rang_auth_token'); } catch {}
+    }
     const identity = session.user?.id ?? null;
     if (priorIdentity.current !== undefined && priorIdentity.current !== identity) {
       client.removeQueries({ predicate: query => ['/api/account', '/api/cart', '/api/customer', '/api/admin'].some(part => JSON.stringify(query.queryKey).includes(part)) });
     }
     priorIdentity.current = identity;
-  }, [session?.user?.id, client]);
+  }, [session?.user?.id, client, session]);
   return (
     // Keep a shared shell (sidebar, navbar) outside the boundary so it
     // survives a page crash.

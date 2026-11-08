@@ -93,6 +93,7 @@ app.use(
     callback(null, {
       origin: allowed,
       credentials: allowed,
+      allowedHeaders: ["content-type", "authorization", "accept", "cache-control"],
       exposedHeaders: ["x-auth-token"],
     });
   }),
