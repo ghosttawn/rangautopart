@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Boxes, ChevronRight, ClipboardList, LayoutDashboard, LogOut, MessageSquare, Package, Settings, Users, X, Plus, Trash2 } from 'lucide-react';
+import { Boxes, ChevronRight, ClipboardList, LayoutDashboard, LogOut, MessageSquare, Package, Settings, Users, X, Plus, Trash2, Upload, ImageIcon } from 'lucide-react';
 import { getGetAdminOverviewQueryKey, getGetAdminProductQueryKey, getGetAdminSettingsQueryKey, getGetCartQueryKey, getGetStorefrontQueryKey, getListAdminSupportMessagesQueryKey, useCreateCategory, useCreateProduct, useDeleteCategory, useDeleteProduct, useDeleteProductImage, useGetAdminOverview, useGetAdminProduct, useGetAdminSettings, useGetAuthSession, useListAdminCategories, useListAdminCustomers, useListAdminOrders, useListAdminProducts, useListAdminSupportMessages, useUpdateAdminSettings, useUpdateAdminSupportMessageById, useUpdateCategory, useUpdateOrder, useUpdateProduct, useUploadCategoryImage, useUploadHeroImage, useUploadProductImage } from '@workspace/api-client-react';
 import type { AdminSupportMessageStatus, CategoryInput, CompatibilityInput, ProductInput, ProductUpdate, StoreSettingsInput } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -60,12 +60,12 @@ function fitmentRows(items: Array<{make:string;model:string;yearFrom:number;year
   }));
 }
 export function AdminProductsPage() {
-  const [q,setQ]=useState('');const [search,setSearch]=useState('');const [page,setPage]=useState(1);const [show,setShow]=useState(false);const [editing,setEditing]=useState<string|null>(null);const [form,setForm]=useState(blankProduct());const [message,setMessage]=useState('');const [saved,setSaved]=useState(false);const settings=useGetAdminSettings();
+  const [q,setQ]=useState('');const [search,setSearch]=useState('');const [page,setPage]=useState(1);const [show,setShow]=useState(false);const [editing,setEditing]=useState<string|null>(null);const [form,setForm]=useState(blankProduct());const [message,setMessage]=useState('');const [saved,setSaved]=useState(false);const [pendingFiles,setPendingFiles]=useState<File[]>([]);const [isUploadingImages,setIsUploadingImages]=useState(false);const settings=useGetAdminSettings();
   const query=useListAdminProducts({q:search||undefined,page,limit:30});const cats=useListAdminCategories();const detail=useGetAdminProduct(editing||'',{query:{enabled:!!editing,queryKey:getGetAdminProductQueryKey(editing||'')}});const create=useCreateProduct();const update=useUpdateProduct();const remove=useDeleteProduct();const upload=useUploadProductImage();const deleteImage=useDeleteProductImage();const qc=useQueryClient();
   useEffect(()=>{if(query.data){const pageCount=Math.max(1,Math.ceil(query.data.total/30));if(page>pageCount)setPage(pageCount)}},[query.data,page]);
   const invalidate=()=>{void qc.invalidateQueries();if(editing)void qc.invalidateQueries({queryKey:getGetAdminProductQueryKey(editing)})};
    useEffect(()=>{const p=detail.data;if(!p||!editing)return;setForm({name:p.name,sku:p.sku,slug:p.slug,brand:p.brand||'',price:(p.priceMinor/100).toFixed(2),sale:p.salePriceMinor==null?'':(p.salePriceMinor/100).toFixed(2),categoryId:(cats.data||[]).find(c=>c.name===p.category)?.id||'',description:p.description,stock:String(p.stock),published:p.published,featured:p.featured,specifications:specificationRows(p.specifications),compatibility:fitmentRows(p.compatibility)})},[detail.data,editing,cats.data]);
-  const beginEdit=(p:NonNullable<typeof query.data>['items'][number])=>{setEditing(p.id);setShow(true);setMessage('');setSaved(false)};
+  const beginEdit=(p:NonNullable<typeof query.data>['items'][number])=>{setEditing(p.id);setShow(true);setPendingFiles([]);setMessage('');setSaved(false)};
    const parsePayload=():ProductInput|ProductUpdate=>{
      const specEntries:Array<[string,unknown]>=[];const seenNames=new Set<string>();
      for(const row of form.specifications){const name=row.name.trim();const rawValue=row.value.trim();if(!name&&!rawValue)continue;if(!name)throw new Error('Add a name to each specification, or remove the empty row.');const normalizedName=name.toLocaleLowerCase();if(seenNames.has(normalizedName))throw new Error(`The specification “${name}” is listed more than once.`);seenNames.add(normalizedName);let value:unknown=rawValue;if(row.kind==='number'){const parsed=Number(rawValue);if(!rawValue||!Number.isFinite(parsed))throw new Error(`Enter a valid number for “${name}”.`);value=parsed}else if(row.kind==='boolean'){value=row.value==='true'}else if(row.kind==='json'){try{value=JSON.parse(row.value)}catch{throw new Error(`Check the advanced value for “${name}”. It must be valid JSON.`)}}else if(!rawValue){throw new Error(`Enter a value for “${name}”.`)}specEntries.push([name,value])}
@@ -74,13 +74,127 @@ export function AdminProductsPage() {
      return {name:form.name,sku:form.sku,slug:form.slug,brand:form.brand||null,priceMinor:Math.round(Number(form.price)*100),salePriceMinor:form.sale?Math.round(Number(form.sale)*100):null,categoryId:form.categoryId,description:form.description,specifications:Object.fromEntries(specEntries),stock:Number(form.stock),published:form.published,featured:form.featured,compatibility:fitment}
    };
   return <AdminLayout title="Products" subtitle="Maintain the live catalog record: listing, stock, fitment, specifications and imagery.">
-     <div className="admin-toolbar"><form className="admin-search" onSubmit={e=>{e.preventDefault();setSearch(q);setPage(1)}}><input className="field" placeholder="Search name, SKU or brand" aria-label="Search catalog products" value={q} onChange={e=>setQ(e.target.value)} data-testid="input-admin-product-search"/><button className="btn" data-testid="button-admin-product-search">Search</button></form><button className="btn btn-accent" onClick={()=>{setShow(v=>!v);setEditing(null);setForm(blankProduct());setMessage('');setSaved(false)}} aria-expanded={show} data-testid="button-create-product">{show?'Close editor':'Add product'} <Plus size={15}/></button></div>
-    {show&&<section className="admin-record" aria-label={editing?'Edit product':'Create product'}><div className="admin-record-heading"><div><div className="eyebrow">{editing?'Full record editor':'New catalog record'}</div><h2 className="display">{editing?(detail.data?.name||'Loading product details'):'Add a product'}</h2></div><button className="btn btn-outline" onClick={()=>{setShow(false);setEditing(null)}} aria-label="Close product editor"><X size={16}/></button></div>
-       {editing&&detail.isLoading?<div className="skeleton" style={{height:150}} role="status" aria-label="Loading full product details"/>:editing&&detail.isError?<NoAccess error={detail.error} retry={()=>detail.refetch()}/>:<form className="inline-form editor-form" onSubmit={e=>{e.preventDefault();setMessage('');let payload:ProductInput|ProductUpdate;try{payload=parsePayload();if(editing&&!form.categoryId)throw new Error('Choose a category before saving.')}catch(err){setMessage(err instanceof Error?err.message:'Check the product details and try again.');return}if(editing)update.mutate({productId:editing,data:payload as ProductUpdate},{onSuccess:()=>{invalidate();setSaved(true);setMessage('Product record saved.')},onError:err=>setMessage(err instanceof Error?err.message:'Could not update product.')});else create.mutate({data:payload as ProductInput},{onSuccess:product=>{invalidate();setEditing(product.id);setSaved(true);setMessage('Product created. Add product imagery below.')},onError:err=>setMessage(err instanceof Error?err.message:'Could not create product.')})}}>
+     <div className="admin-toolbar"><form className="admin-search" onSubmit={e=>{e.preventDefault();setSearch(q);setPage(1)}}><input className="field" placeholder="Search name, SKU or brand" aria-label="Search catalog products" value={q} onChange={e=>setQ(e.target.value)} data-testid="input-admin-product-search"/><button className="btn" data-testid="button-admin-product-search">Search</button></form><button className="btn btn-accent" onClick={()=>{setShow(v=>!v);setEditing(null);setForm(blankProduct());setPendingFiles([]);setMessage('');setSaved(false)}} aria-expanded={show} data-testid="button-create-product">{show?'Close editor':'Add product'} <Plus size={15}/></button></div>
+    {show&&<section className="admin-record" aria-label={editing?'Edit product':'Create product'}><div className="admin-record-heading"><div><div className="eyebrow">{editing?'Full record editor':'New catalog record'}</div><h2 className="display">{editing?(detail.data?.name||'Loading product details'):'Add a product'}</h2></div><button className="btn btn-outline" onClick={()=>{setShow(false);setEditing(null);setPendingFiles([])}} aria-label="Close product editor"><X size={16}/></button></div>
+       {editing&&detail.isLoading?<div className="skeleton" style={{height:150}} role="status" aria-label="Loading full product details"/>:editing&&detail.isError?<NoAccess error={detail.error} retry={()=>detail.refetch()}/>:<form className="inline-form editor-form" onSubmit={e=>{e.preventDefault();setMessage('');let payload:ProductInput|ProductUpdate;try{payload=parsePayload();if(editing&&!form.categoryId)throw new Error('Choose a category before saving.')}catch(err){setMessage(err instanceof Error?err.message:'Check the product details and try again.');return}if(editing)update.mutate({productId:editing,data:payload as ProductUpdate},{onSuccess:()=>{invalidate();setSaved(true);setMessage('Product record saved.')},onError:err=>setMessage(err instanceof Error?err.message:'Could not update product.')});else create.mutate({data:payload as ProductInput},{onSuccess:async product=>{
+      invalidate();
+      setEditing(product.id);
+      if (pendingFiles.length > 0) {
+        setIsUploadingImages(true);
+        setMessage('Product created. Uploading ' + pendingFiles.length + ' image' + (pendingFiles.length > 1 ? 's' : '') + '...');
+        let errCount = 0;
+        for (const file of pendingFiles) {
+          try {
+            await upload.mutateAsync({ productId: product.id, data: { file, altText: form.name } });
+          } catch {
+            errCount++;
+          }
+        }
+        setIsUploadingImages(false);
+        setPendingFiles([]);
+        invalidate();
+        setSaved(true);
+        setMessage(errCount > 0 ? 'Product created, but ' + errCount + ' image(s) failed to upload.' : 'Product created and ' + (pendingFiles.length - errCount) + ' image(s) uploaded successfully.');
+      } else {
+        setSaved(true);
+        setMessage('Product record created. You can manage imagery below.');
+      }
+    },onError:err=>setMessage(err instanceof Error?err.message:'Could not create product.')})}}>
       <label className="label">Product name<input className="field" required maxLength={180} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} data-testid="input-product-name"/></label><label className="label">SKU<input className="field" required value={form.sku} onChange={e=>setForm({...form,sku:e.target.value})} data-testid="input-product-sku"/></label><label className="label">URL slug<input className="field" required value={form.slug} onChange={e=>setForm({...form,slug:e.target.value})} data-testid="input-product-slug"/></label><label className="label">Brand<input className="field" value={form.brand} onChange={e=>setForm({...form,brand:e.target.value})} data-testid="input-product-brand"/></label><label className="label">Price{settings.data?.currency?` (${settings.data.currency})`:''}<input className="field" required type="number" min="0" step=".01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} data-testid="input-product-price"/></label><label className="label">Sale price{settings.data?.currency?` (${settings.data.currency})`:''}<input className="field" type="number" min="0" step=".01" value={form.sale} onChange={e=>setForm({...form,sale:e.target.value})} data-testid="input-product-sale"/></label><label className="label">Category<select className="field" required value={form.categoryId} onChange={e=>setForm({...form,categoryId:e.target.value})} data-testid="select-product-category"><option value="">Choose category</option>{(cats.data||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="label">Available stock<input className="field" required type="number" min="0" step="1" value={form.stock} onChange={e=>setForm({...form,stock:e.target.value})} data-testid="input-product-stock"/></label><label className="label wide">Description<textarea className="field" required rows={4} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} data-testid="input-product-description"/></label><ProductSpecificationsEditor rows={form.specifications} onChange={specifications=>setForm({...form,specifications})}/><ProductFitmentEditor rows={form.compatibility} onChange={compatibility=>setForm({...form,compatibility})}/><label className="filter-option wide"><input type="checkbox" checked={form.published} onChange={e=>setForm({...form,published:e.target.checked})} data-testid="input-product-published"/> Published in storefront</label>
         <label className="filter-option wide"><input type="checkbox" checked={form.featured} onChange={e=>setForm({...form,featured:e.target.checked})} data-testid="input-product-featured"/> Feature on the homepage</label>
-        {editing&&detail.data&&<div className="wide"><div className="eyebrow">Product images</div><div className="admin-product-images">{detail.data.images.map(image=><div className="admin-image-tile" key={image.id}><img src={toApiUrl(image.url) ?? image.url} alt={image.altText||detail.data!.name}/><button type="button" aria-label={`Remove image ${image.altText||''}`} disabled={deleteImage.isPending} onClick={()=>{if(window.confirm('Remove this product image?'))deleteImage.mutate({productId:editing,imageId:image.id},{onSuccess:invalidate,onError:err=>setMessage(err instanceof Error?err.message:'Could not remove image.')})}}><Trash2 size={14}/></button></div>)}<label className="image-upload"><span>Upload image</span><input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload product image" onChange={e=>{const file=e.target.files?.[0];if(file){const validationError=validateImageFile(file);if(validationError)setMessage(validationError);else upload.mutate({productId:editing,data:{file,altText:form.name}},{onSuccess:invalidate,onError:err=>setMessage(err instanceof Error?err.message:'Image upload failed.')})}e.currentTarget.value=''}} data-testid="input-product-image-upload"/></label></div></div>}
-        {message&&<div className={saved?'notice wide':'notice error wide'} role={saved?'status':'alert'}>{message}</div>}<button className="btn wide" disabled={create.isPending||update.isPending||cats.isLoading||!!(editing&&detail.isLoading)} data-testid="button-save-product">{create.isPending||update.isPending?'Saving record…':editing?'Save complete product record':'Create product'}</button>
+        <div className="wide product-images-section">
+          <div className="eyebrow">Product images (JPEG, PNG, or WebP; up to 5 MB each)</div>
+          <p className="attribute-note" style={{marginBottom:10,fontSize:12,color:'hsl(var(--muted-foreground))'}}>
+            {editing
+              ? 'Select images from your device to add to this product\'s gallery. Remove or replace anytime.'
+              : 'Select images from your device. They will be uploaded automatically when you save the product.'}
+          </p>
+          <div className="admin-product-images">
+            {editing && detail.data?.images.map(image => (
+              <div className="admin-image-tile" key={image.id}>
+                <img src={toApiUrl(image.url) ?? image.url} alt={image.altText || detail.data!.name} />
+                <button
+                  type="button"
+                  aria-label={`Remove image ${image.altText || ''}`}
+                  disabled={deleteImage.isPending}
+                  onClick={() => {
+                    if (window.confirm('Remove this product image?')) {
+                      deleteImage.mutate(
+                        { productId: editing, imageId: image.id },
+                        { onSuccess: invalidate, onError: err => setMessage(err instanceof Error ? err.message : 'Could not remove image.') }
+                      );
+                    }
+                  }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+            {!editing && pendingFiles.map((file, idx) => (
+              <div className="admin-image-tile pending-image-tile" key={idx} style={{position:'relative'}}>
+                <img src={URL.createObjectURL(file)} alt={`Preview ${idx + 1}`} style={{width:'100%',height:'100%',objectFit:'cover'}} />
+                <button
+                  type="button"
+                  aria-label="Remove selected image"
+                  onClick={() => setPendingFiles(current => current.filter((_, i) => i !== idx))}
+                  style={{position:'absolute',top:2,right:2}}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+            <label className="image-upload" data-testid="label-product-image-upload" style={{cursor: (upload.isPending || isUploadingImages) ? 'wait' : 'pointer'}}>
+              <Upload size={18} style={{marginBottom:4}} />
+              <span>{(upload.isPending || isUploadingImages) ? 'Uploading…' : (editing ? 'Add image' : 'Select images')}</span>
+              <input
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                aria-label="Upload product images"
+                disabled={upload.isPending || isUploadingImages}
+                onChange={async e => {
+                  const files = Array.from(e.target.files || []);
+                  if (!files.length) return;
+                  setMessage('');
+                  const validFiles: File[] = [];
+                  for (const f of files) {
+                    const err = validateImageFile(f);
+                    if (err) {
+                      setMessage(`${f.name}: ${err}`);
+                      e.currentTarget.value = '';
+                      return;
+                    }
+                    validFiles.push(f);
+                  }
+                  if (editing) {
+                    let failCount = 0;
+                    for (const f of validFiles) {
+                      try {
+                        await upload.mutateAsync({ productId: editing, data: { file: f, altText: form.name } });
+                      } catch {
+                        failCount++;
+                      }
+                    }
+                    invalidate();
+                    if (failCount > 0) {
+                      setMessage(`${failCount} image(s) failed to upload.`);
+                    } else {
+                      setMessage(`${validFiles.length} image(s) uploaded successfully.`);
+                      setSaved(true);
+                    }
+                  } else {
+                    setPendingFiles(curr => [...curr, ...validFiles]);
+                    setMessage(`${validFiles.length} image(s) selected and ready to save.`);
+                  }
+                  e.currentTarget.value = '';
+                }}
+                data-testid="input-product-image-upload"
+              />
+            </label>
+          </div>
+          {isUploadingImages && <p className="eyebrow" style={{marginTop:8,color:'hsl(var(--primary))'}}>Uploading product images…</p>}
+        </div>
+        {message&&<div className={saved?'notice wide':'notice error wide'} role={saved?'status':'alert'}>{message}</div>}<button className="btn wide" disabled={create.isPending||update.isPending||isUploadingImages||cats.isLoading||!!(editing&&detail.isLoading)} data-testid="button-save-product">{isUploadingImages?'Uploading images…':create.isPending||update.isPending?'Saving record…':editing?'Save complete product record':'Create product'}</button>
       </form>}</section>}
       {query.isLoading?<div className="skeleton" style={{height:200}} role="status" aria-label="Loading product list"/>:query.isError?<NoAccess error={query.error} retry={()=>query.refetch()}/>:query.data?.items.length?<div className="table-wrap"><table className="data-table"><thead><tr><th>Product</th><th>SKU</th><th>Price</th><th>Stock</th><th>Visibility</th><th>Actions</th></tr></thead><tbody>{query.data.items.map(p=><tr key={p.id} data-testid={`row-admin-product-${p.id}`}><td><strong>{p.name}</strong><div className="eyebrow">{p.category||'Uncategorized'} · {p.brand||'No brand'}</div></td><td className="mono">{p.sku}</td><td>{money(p.salePriceMinor??p.priceMinor,settings.data?.currency)}</td><td><strong>{p.stock}</strong></td><td><span className="status-pill">{p.published?'Published':'Draft'}</span></td><td><div className="row-actions"><button className="btn btn-outline" onClick={()=>beginEdit(p)} data-testid={`button-edit-product-${p.id}`}>Edit full record</button><button className="btn btn-outline" disabled={remove.isPending} onClick={()=>{if(window.confirm(`Delete ${p.name}? This removes the catalog record.`))remove.mutate({productId:p.id},{onSuccess:invalidate,onError:err=>setMessage(err instanceof Error?err.message:'Could not delete product.')})}} data-testid={`button-delete-product-${p.id}`}>Delete</button></div></td></tr>)}</tbody></table></div>:<div className="notice" role="status">No products found. Create the first catalog record when product details are ready.</div>}
      {query.data&&(page>1||query.data.total>30)&&<div className="orders-toolbar" style={{marginTop:18}}><span className="eyebrow">Page {page} of {Math.max(1,Math.ceil(query.data.total/30))} · {query.data.total} products</span><div style={{display:'flex',gap:8}}><button className="btn btn-outline" disabled={page<=1} onClick={()=>setPage(current=>current-1)} data-testid="button-products-previous">Previous</button><button className="btn btn-outline" disabled={page>=Math.max(1,Math.ceil(query.data.total/30))} onClick={()=>setPage(current=>current+1)} data-testid="button-products-next">Next</button></div></div>}
