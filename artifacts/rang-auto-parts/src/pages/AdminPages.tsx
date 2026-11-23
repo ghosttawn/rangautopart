@@ -33,12 +33,14 @@ export function AdminOverviewPage() {
 }
 
 function generateSlug(text: string): string {
-  return text
+  const clean = text
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 80) || ('part-' + Math.random().toString(36).substring(2, 7));
+    .slice(0, 60);
+  const randomSuffix = Math.random().toString(36).substring(2, 7);
+  return clean ? `${clean}-${randomSuffix}` : `part-${randomSuffix}`;
 }
 
 function generateSku(name: string, brand?: string): string {
@@ -92,13 +94,41 @@ export function AdminProductsPage() {
        if (isNaN(saleNum) || saleNum < 0) throw new Error('Sale price must be a valid number of zero or more.');
        if (saleNum >= priceNum) throw new Error('Sale price must be strictly lower than the regular price.');
      }
-     const finalSlug = form.slug.trim() ? form.slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-') : generateSlug(form.name);
-     const finalSku = form.sku.trim() || generateSku(form.name, form.brand);
+     const finalSlug = (editing && form.slug.trim()) ? form.slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-') : (form.slug.trim() || generateSlug(form.name));
+     const finalSku = (editing && form.sku.trim()) ? form.sku.trim() : (form.sku.trim() || generateSku(form.name, form.brand));
      const specEntries:Array<[string,unknown]>=[];const seenNames=new Set<string>();
-     for(const row of form.specifications){const name=row.name.trim();const rawValue=row.value.trim();if(!name&&!rawValue)continue;if(!name)throw new Error('Add a name to each specification, or remove the empty row.');const normalizedName=name.toLocaleLowerCase();if(seenNames.has(normalizedName))throw new Error(`The specification “${name}” is listed more than once.`);seenNames.add(normalizedName);let value:unknown=rawValue;if(row.kind==='number'){const parsed=Number(rawValue);if(!rawValue||!Number.isFinite(parsed))throw new Error(`Enter a valid number for “${name}”.`);value=parsed}else if(row.kind==='boolean'){value=row.value==='true'}else if(row.kind==='json'){try{value=JSON.parse(row.value)}catch{throw new Error(`Check the advanced value for “${name}”. It must be valid JSON.`)}}else if(!rawValue){throw new Error(`Enter a value for “${name}”.`)}}specEntries.push([name,value])}
+     for(const row of form.specifications){
+       const name=row.name.trim();const rawValue=row.value.trim();
+       if(!name&&!rawValue)continue;
+       if(!name)throw new Error('Add a name to each specification, or remove the empty row.');
+       const normalizedName=name.toLocaleLowerCase();
+       if(seenNames.has(normalizedName))throw new Error(`The specification “${name}” is listed more than once.`);
+       seenNames.add(normalizedName);
+       let value:unknown=rawValue;
+       if(row.kind==='number'){
+         const parsed=Number(rawValue);
+         if(!rawValue||!Number.isFinite(parsed))throw new Error(`Enter a valid number for “${name}”.`);
+         value=parsed;
+       }else if(row.kind==='boolean'){
+         value=row.value==='true';
+       }else if(row.kind==='json'){
+         try{value=JSON.parse(row.value)}catch{throw new Error(`Check the advanced value for “${name}”. It must be valid JSON.`)}
+       }else if(!rawValue){
+         throw new Error(`Enter a value for “${name}”.`);
+       }
+       specEntries.push([name,value]);
+     }
      const fitment:CompatibilityInput[]=[];
-     for(const row of form.compatibility){const make=row.make.trim();const model=row.model.trim();const fromText=row.yearFrom.trim();const toText=row.yearTo.trim();if(!make&&!model&&!fromText&&!toText)continue;if(!make||!model||!fromText||!toText)throw new Error('Complete the make, model, and both years for each vehicle, or remove the empty row.');const yearFrom=Number(fromText);const yearTo=Number(toText);if(!Number.isInteger(yearFrom)||!Number.isInteger(yearTo)||yearFrom<1886||yearTo>2100||yearFrom>yearTo)throw new Error('Enter a valid vehicle year range from 1886 through 2100.');fitment.push({make,model,yearFrom,yearTo,verified:row.verified})}
-     return {name:form.name.trim(),sku:finalSku,slug:finalSlug,brand:form.brand.trim()||null,priceMinor:Math.round(priceNum*100),salePriceMinor:form.sale?Math.round(Number(form.sale)*100):null,categoryId:form.categoryId,description:form.description,specifications:Object.fromEntries(specEntries),stock:Math.max(0, parseInt(form.stock, 10) || 0),published:form.published,featured:form.featured,compatibility:fitment}   };
+     for(const row of form.compatibility){
+       const make=row.make.trim();const model=row.model.trim();const fromText=row.yearFrom.trim();const toText=row.yearTo.trim();
+       if(!make&&!model&&!fromText&&!toText)continue;
+       if(!make||!model||!fromText||!toText)throw new Error('Complete the make, model, and both years for each vehicle, or remove the empty row.');
+       const yearFrom=Number(fromText);const yearTo=Number(toText);
+       if(!Number.isInteger(yearFrom)||!Number.isInteger(yearTo)||yearFrom<1886||yearTo>2100||yearFrom>yearTo)throw new Error('Enter a valid vehicle year range from 1886 through 2100.');
+       fitment.push({make,model,yearFrom,yearTo,verified:row.verified});
+     }
+     return {name:form.name.trim(),sku:finalSku,slug:finalSlug,brand:form.brand.trim()||null,priceMinor:Math.round(priceNum*100),salePriceMinor:form.sale?Math.round(Number(form.sale)*100):null,categoryId:form.categoryId,description:form.description,specifications:Object.fromEntries(specEntries),stock:Math.max(0, parseInt(form.stock, 10) || 0),published:form.published,featured:form.featured,compatibility:fitment};
+   };
   return <AdminLayout title="Products" subtitle="Maintain the live catalog record: listing, stock, fitment, specifications and imagery.">
      <div className="admin-toolbar"><form className="admin-search" onSubmit={e=>{e.preventDefault();setSearch(q);setPage(1)}}><input className="field" placeholder="Search name, SKU or brand" aria-label="Search catalog products" value={q} onChange={e=>setQ(e.target.value)} data-testid="input-admin-product-search"/><button className="btn" data-testid="button-admin-product-search">Search</button></form><button className="btn btn-accent" onClick={()=>{setShow(v=>!v);setEditing(null);setForm(blankProduct());setPendingFiles([]);setMessage('');setSaved(false)}} aria-expanded={show} data-testid="button-create-product">{show?'Close editor':'Add product'} <Plus size={15}/></button></div>
     {show&&<section className="admin-record" aria-label={editing?'Edit product':'Create product'}><div className="admin-record-heading"><div><div className="eyebrow">{editing?'Full record editor':'New catalog record'}</div><h2 className="display">{editing?(detail.data?.name||'Loading product details'):'Add a product'}</h2></div><button className="btn btn-outline" onClick={()=>{setShow(false);setEditing(null);setPendingFiles([])}} aria-label="Close product editor"><X size={16}/></button></div>
@@ -126,7 +156,7 @@ export function AdminProductsPage() {
         setMessage('Product record created. You can manage imagery below.');
       }
     },onError:err=>setMessage(err instanceof Error?err.message:'Could not create product.')})}}>
-      <label className="label">Product name<input className="field" required maxLength={180} placeholder="e.g. Front Brake Pad Set" value={form.name} onChange={e=>{const newName=e.target.value;setForm(prev=>({...prev,name:newName,slug:(!editing && (!prev.slug || prev.slug===generateSlug(prev.name)))?generateSlug(newName):prev.slug,sku:(!editing && (!prev.sku || prev.sku.startsWith('RANG-')))?generateSku(newName,prev.brand):prev.sku}))}} data-testid="input-product-name"/></label><label className="label">SKU <small style={{color:'hsl(var(--muted-foreground))',fontWeight:'normal'}}>(auto-generated if left blank)</small><input className="field" placeholder="e.g. BRK-PAD-102" value={form.sku} onChange={e=>setForm({...form,sku:e.target.value})} data-testid="input-product-sku"/></label><label className="label">URL slug <small style={{color:'hsl(var(--muted-foreground))',fontWeight:'normal'}}>(auto-generated from name)</small><input className="field" placeholder="e.g. front-brake-pad-set" value={form.slug} onChange={e=>setForm({...form,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-')})} data-testid="input-product-slug"/></label><label className="label">Brand<input className="field" value={form.brand} onChange={e=>setForm({...form,brand:e.target.value})} data-testid="input-product-brand"/></label><label className="label">Price{settings.data?.currency?` (${settings.data.currency})`:''}<input className="field" required type="number" min="0" step=".01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} data-testid="input-product-price"/></label><label className="label">Sale price{settings.data?.currency?` (${settings.data.currency})`:''}<input className="field" type="number" min="0" step=".01" value={form.sale} onChange={e=>setForm({...form,sale:e.target.value})} data-testid="input-product-sale"/></label><label className="label">Category<select className="field" required value={form.categoryId} onChange={e=>setForm({...form,categoryId:e.target.value})} data-testid="select-product-category"><option value="">Choose category</option>{(cats.data||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="label">Available stock<input className="field" required type="number" min="0" step="1" value={form.stock} onChange={e=>setForm({...form,stock:e.target.value})} data-testid="input-product-stock"/></label><label className="label wide">Description<textarea className="field" required rows={4} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} data-testid="input-product-description"/></label><ProductSpecificationsEditor rows={form.specifications} onChange={specifications=>setForm({...form,specifications})}/><ProductFitmentEditor rows={form.compatibility} onChange={compatibility=>setForm({...form,compatibility})}/><label className="filter-option wide"><input type="checkbox" checked={form.published} onChange={e=>setForm({...form,published:e.target.checked})} data-testid="input-product-published"/> Published in storefront</label>
+      <label className="label">Product name<input className="field" required maxLength={180} placeholder="e.g. Front Brake Pad Set" value={form.name} onChange={e=>setForm(prev=>({...prev,name:e.target.value}))} data-testid="input-product-name"/></label><label className="label">Brand<input className="field" value={form.brand} onChange={e=>setForm({...form,brand:e.target.value})} data-testid="input-product-brand"/></label><label className="label">Price{settings.data?.currency?` (${settings.data.currency})`:''}<input className="field" required type="number" min="0" step=".01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} data-testid="input-product-price"/></label><label className="label">Sale price{settings.data?.currency?` (${settings.data.currency})`:''}<input className="field" type="number" min="0" step=".01" value={form.sale} onChange={e=>setForm({...form,sale:e.target.value})} data-testid="input-product-sale"/></label><label className="label">Category<select className="field" required value={form.categoryId} onChange={e=>setForm({...form,categoryId:e.target.value})} data-testid="select-product-category"><option value="">Choose category</option>{(cats.data||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="label">Available stock<input className="field" required type="number" min="0" step="1" value={form.stock} onChange={e=>setForm({...form,stock:e.target.value})} data-testid="input-product-stock"/></label><label className="label wide">Description<textarea className="field" required rows={4} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} data-testid="input-product-description"/></label><ProductSpecificationsEditor rows={form.specifications} onChange={specifications=>setForm({...form,specifications})}/><ProductFitmentEditor rows={form.compatibility} onChange={compatibility=>setForm({...form,compatibility})}/><label className="filter-option wide"><input type="checkbox" checked={form.published} onChange={e=>setForm({...form,published:e.target.checked})} data-testid="input-product-published"/> Published in storefront</label>
         <label className="filter-option wide"><input type="checkbox" checked={form.featured} onChange={e=>setForm({...form,featured:e.target.checked})} data-testid="input-product-featured"/> Feature on the homepage</label>
         <div className="wide product-images-section">
           <div className="eyebrow">Product images (JPEG, PNG, or WebP; up to 5 MB each)</div>
