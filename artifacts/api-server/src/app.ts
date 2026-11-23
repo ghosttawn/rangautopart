@@ -187,10 +187,28 @@ app.use((err: unknown, req: express.Request, res: express.Response, _next: expre
     return;
   }
   if (typeof err === "object" && err !== null && "code" in err) {
-    if (err.code === "23505" || err.code === "23503") {
+    if (err.code === "23505") {
+      const detail = typeof (err as any).detail === "string" ? (err as any).detail : "";
+      let conflictMsg = "A record with this unique identifier already exists.";
+      if (detail.includes("products_sku_unique") || detail.includes("Key (sku)")) {
+        conflictMsg = "This SKU is already used by another product. Enter a unique SKU or leave it blank to auto-generate.";
+      } else if (detail.includes("products_slug_unique") || detail.includes("Key (slug)")) {
+        conflictMsg = "This URL slug is already in use. Please modify the slug or name to be unique.";
+      } else if (detail.includes("categories_slug_unique") || detail.includes("categories_name_unique")) {
+        conflictMsg = "A category with this name or slug already exists.";
+      } else if (detail.includes("users_email_unique") || detail.includes("Key (email)")) {
+        conflictMsg = "An account with this email address already exists.";
+      }
       res.status(409).json({
-        error: "That value conflicts with an existing record.",
+        error: conflictMsg,
         code: "RECORD_CONFLICT",
+      });
+      return;
+    }
+    if (err.code === "23503") {
+      res.status(409).json({
+        error: "Referenced record was not found or is in use.",
+        code: "FOREIGN_KEY_VIOLATION",
       });
       return;
     }

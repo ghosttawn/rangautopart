@@ -157,10 +157,6 @@ function safeRequestPath(url: string): string {
 }
 
 function buildErrorMessage(response: Response, data: unknown): string {
-  if (response.status >= 500) {
-    return "The service is temporarily unavailable. Please try again shortly.";
-  }
-
   const message = getStringField(data, "error");
   const code = getStringField(data, "code");
   if (
@@ -171,6 +167,11 @@ function buildErrorMessage(response: Response, data: unknown): string {
   ) {
     return message;
   }
+
+  if (response.status >= 500) {
+    return "The service is temporarily unavailable or waking up. Please try again shortly.";
+  }
+
   return "The request could not be completed. Please try again.";
 }
 
@@ -379,7 +380,7 @@ export async function customFetch<T = unknown>(
   const timeoutId = setTimeout(() => {
     timedOut = true;
     requestController.abort();
-  }, 15_000);
+  }, 45_000);
 
   try {
     const response = await fetch(input, {

@@ -344,14 +344,28 @@ router.post("/admin/products", async (req, res): Promise<void> => {
   }
   const body = parsed.data;
   const specifications = normalizeSpecifications(body.specifications);
-  if (
-    !UUID_PATTERN.test(body.categoryId) ||
-    !SLUG_PATTERN.test(body.slug) ||
-    !validCompatibility(body.compatibility) ||
-    specifications === null ||
-    (body.salePriceMinor != null && body.salePriceMinor >= body.priceMinor)
-  ) {
-    res.status(400).json(errorResponse("Product prices, URL, category, or fitment are invalid.", "INVALID_PRODUCT"));
+  if (!UUID_PATTERN.test(body.categoryId)) {
+    res.status(400).json(errorResponse("Please choose a valid product category.", "INVALID_CATEGORY"));
+    return;
+  }
+  if (!SLUG_PATTERN.test(body.slug)) {
+    res.status(400).json(errorResponse("URL slug may only contain lowercase letters, numbers, and single hyphens.", "INVALID_SLUG"));
+    return;
+  }
+  if (body.priceMinor < 0 || !Number.isFinite(body.priceMinor)) {
+    res.status(400).json(errorResponse("Please enter a valid regular price of zero or more.", "INVALID_PRICE"));
+    return;
+  }
+  if (body.salePriceMinor != null && body.salePriceMinor >= body.priceMinor) {
+    res.status(400).json(errorResponse("Sale price must be strictly lower than regular price.", "INVALID_SALE_PRICE"));
+    return;
+  }
+  if (!validCompatibility(body.compatibility)) {
+    res.status(400).json(errorResponse("Vehicle fitment year ranges must be valid (start year cannot exceed end year).", "INVALID_COMPATIBILITY"));
+    return;
+  }
+  if (specifications === null) {
+    res.status(400).json(errorResponse("Product specifications must have valid names and values.", "INVALID_SPECIFICATIONS"));
     return;
   }
   const [category] = await db
@@ -399,16 +413,28 @@ router.patch("/admin/products/:productId", async (req, res): Promise<void> => {
     return;
   }
   const body = parsed.data;
-  if (
-    Object.keys(body).length === 0 ||
-    (body.slug !== undefined && !SLUG_PATTERN.test(body.slug)) ||
-    (body.categoryId !== undefined && !UUID_PATTERN.test(body.categoryId)) ||
-    !validCompatibility(body.compatibility) ||
-    (body.salePriceMinor != null &&
-      body.priceMinor !== undefined &&
-      body.salePriceMinor >= body.priceMinor)
-  ) {
-    res.status(400).json(errorResponse("Product prices, URL, category, or fitment are invalid.", "INVALID_PRODUCT"));
+  if (Object.keys(body).length === 0) {
+    res.status(400).json(errorResponse("Provide at least one field to update.", "EMPTY_UPDATE"));
+    return;
+  }
+  if (body.slug !== undefined && !SLUG_PATTERN.test(body.slug)) {
+    res.status(400).json(errorResponse("URL slug may only contain lowercase letters, numbers, and single hyphens.", "INVALID_SLUG"));
+    return;
+  }
+  if (body.categoryId !== undefined && !UUID_PATTERN.test(body.categoryId)) {
+    res.status(400).json(errorResponse("Please choose a valid product category.", "INVALID_CATEGORY"));
+    return;
+  }
+  if (body.priceMinor !== undefined && (body.priceMinor < 0 || !Number.isFinite(body.priceMinor))) {
+    res.status(400).json(errorResponse("Please enter a valid regular price of zero or more.", "INVALID_PRICE"));
+    return;
+  }
+  if (body.salePriceMinor != null && body.priceMinor !== undefined && body.salePriceMinor >= body.priceMinor) {
+    res.status(400).json(errorResponse("Sale price must be strictly lower than regular price.", "INVALID_SALE_PRICE"));
+    return;
+  }
+  if (!validCompatibility(body.compatibility)) {
+    res.status(400).json(errorResponse("Vehicle fitment year ranges must be valid (start year cannot exceed end year).", "INVALID_COMPATIBILITY"));
     return;
   }
   if (body.categoryId) {

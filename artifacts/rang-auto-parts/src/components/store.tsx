@@ -170,7 +170,29 @@ export function ApiNotice({error,onRetry}:{error:unknown;onRetry?:()=>void}) {
   const message = error instanceof Error ? error.message : 'We could not reach the parts service. Please try again.';
   const status = (error as {status?:number}|undefined)?.status;
   const isDenied = status === 401 || status === 403;
-  return <div className="notice error" role="alert" data-testid="status-api-error"><strong>{isDenied ? 'Access not available' : 'Something did not load'}</strong><div>{isDenied ? (status === 401 ? 'Sign in to view this information.' : 'Your account does not currently have permission to view this information.') : message}</div>{onRetry && <button className="btn btn-outline" style={{marginTop:12}} onClick={onRetry} data-testid="button-retry">Try again</button>}</div>;
+  const isServerWaking = status && status >= 500;
+  return (
+    <div className="notice error" role="alert" data-testid="status-api-error">
+      <strong>
+        {isDenied ? 'Access not available' : isServerWaking ? 'Service is waking up' : 'Something did not load'}
+      </strong>
+      <div style={{marginTop:4}}>
+        {isDenied
+          ? (status === 401 ? 'Sign in to view this information.' : 'Your account does not currently have permission to view this information.')
+          : message}
+      </div>
+      {onRetry && (
+        <button
+          className="btn btn-outline"
+          style={{marginTop:12}}
+          onClick={onRetry}
+          data-testid="button-retry"
+        >
+          {isServerWaking ? 'Retry connection' : 'Try again'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function TrustStrip() {
